@@ -91,8 +91,35 @@ build was in place.
 | macOS | Universal (`darwin_all`) binaries, used only when no native asset exists |
 | Nesting | Binary at the archive root or in a subdirectory; `.exe` tolerated |
 | Checksums | `sha256sum` and goreleaser formats, with or without the binary-mode `*` |
+| Tags | `v1.2.3`, or `cli/v1.2.3` in a repository publishing several components |
 
 goreleaser's defaults satisfy all of this with no configuration.
+
+### Repositories publishing more than one component
+
+A repository that releases several things gives each its own tag prefix —
+`cli/v1.2.3`, `api/v2.0.0`. Go requires it of a module in a subdirectory, and
+goreleaser calls it a monorepo tag prefix. Set `TagPrefix` to pick a stream:
+
+```go
+goselfupdate.Config{
+    Owner:     "datapointchris",
+    Repo:      "meso",
+    Binary:    "meso",
+    Version:   version,
+    TagPrefix: "cli/",
+}
+```
+
+This is not only a parsing convenience. GitHub's "latest release" endpoint is
+repository-wide, so without a prefix it returns whichever component released
+most recently — a CLI would eventually try to install its own application's
+release. A prefix switches to the release list, filters it, and picks the
+highest version rather than the most recently created, so a patch to an older
+line published after a newer minor is not offered as an update.
+
+Tags come back with the prefix removed, so `Release.Tag`, `Result.From` and
+`Result.To` are versions and the repository's tag layout stays internal.
 
 ## Configuration
 
@@ -105,6 +132,7 @@ Everything beyond the four required fields has a working default.
 | `Source` | GitHub | Another forge, or a private mirror |
 | `Verifier` | `ChecksumVerifier` | Signature verification, or `NoVerification` |
 | `AllowPrerelease` | `false` | Include prereleases when selecting the newest version |
+| `TagPrefix` | `""` | Select one release stream in a repository publishing several |
 
 GitHub Enterprise works by setting `GitHubSource.APIBase` to its `/api/v3` root.
 

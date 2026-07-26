@@ -40,6 +40,21 @@ type GitHubSource struct {
 	// prerelease. GitHub's "latest release" endpoint excludes them, so this
 	// selects a different endpoint.
 	AllowPrerelease bool
+
+	// TagPrefix selects one release stream in a repository that publishes
+	// several, as in "cli/" for tags of the form cli/v1.2.3. Empty means the
+	// repository publishes a single stream tagged v1.2.3, which is the common
+	// case and the default.
+	//
+	// A prefix is not cosmetic: Go requires a module in a subdirectory to be
+	// tagged with that subdirectory, and GitHub's "latest release" endpoint is
+	// repository-wide, so it will happily return another component's release.
+	// Setting this switches to the release list and filters it, which is the
+	// only way to ask for the newest release of one stream.
+	//
+	// Reported tags have the prefix removed, so [Release.Tag] is a version as
+	// documented and callers never see the repository's tag layout.
+	TagPrefix string
 }
 
 type githubRelease struct {
@@ -53,16 +68,23 @@ type githubRelease struct {
 	} `json:"assets"`
 }
 
-func (r githubRelease) toRelease() Release {
+func (r githubRelease) toRelease(tagPrefix string) Release {
 	assets := make([]Asset, 0, len(r.Assets))
 	for _, a := range r.Assets {
 		assets = append(assets, Asset{Name: a.Name, URL: a.URL, Size: a.Size})
 	}
-	return Release{Tag: r.TagName, Assets: assets, Prerelease: r.Prerelease}
+	return Release{
+		Tag:        strings.TrimPrefix(r.TagName, tagPrefix),
+		Assets:     assets,
+		Prerelease: r.Prerelease,
+	}
 }
 
 // LatestRelease implements [Source].
 func (s *GitHubSource) LatestRelease(ctx context.Context) (Release, error) {
+	if s.TagPrefix != "" {
+		return s.highestPrefixedRelease(ctx)
+	}
 	if s.AllowPrerelease {
 		return s.newestRelease(ctx)
 	}
@@ -74,7 +96,7 @@ func (s *GitHubSource) LatestRelease(ctx context.Context) (Release, error) {
 	if release.TagName == "" {
 		return Release{}, fmt.Errorf("%w for %s/%s", ErrNoRelease, s.Owner, s.Repo)
 	}
-	return release.toRelease(), nil
+	return release.toRelease(""), nil
 }
 
 // newestRelease takes the first non-draft entry from the release list, which
@@ -86,10 +108,55 @@ func (s *GitHubSource) newestRelease(ctx context.Context) (Release, error) {
 	}
 	for _, release := range releases {
 		if !release.Draft && release.TagName != "" {
-			return release.toRelease(), nil
+			return release.toRelease(""), nil
 		}
 	}
 	return Release{}, fmt.Errorf("%w for %s/%s", ErrNoRelease, s.Owner, s.Repo)
+}
+
+// highestPrefixedRelease returns the highest-versioned release carrying
+// TagPrefix.
+//
+// It selects by version rather than by position, unlike [newestRelease]. Within
+// one stream those can disagree — a patch to an older line (cli/v1.4.1)
+// published after a newer minor (cli/v1.5.0) sits earlier in a list GitHub
+// orders by creation date — and offering that as an "update" would move the
+// caller backwards.
+//
+// The page is the API maximum because the list interleaves every stream in the
+// repository: the component being asked about may be far down a page otherwise
+// dominated by another one.
+func (s *GitHubSource) highestPrefixedRelease(ctx context.Context) (Release, error) {
+	var releases []githubRelease
+	if err := s.getJSON(ctx, s.url("releases?per_page=100"), &releases); err != nil {
+		return Release{}, err
+	}
+
+	var best Release
+	for _, release := range releases {
+		if release.Draft || release.TagName == "" {
+			continue
+		}
+		if release.Prerelease && !s.AllowPrerelease {
+			continue
+		}
+		if !strings.HasPrefix(release.TagName, s.TagPrefix) {
+			continue
+		}
+		candidate := release.toRelease(s.TagPrefix)
+		if !isValidVersion(canonical(candidate.Tag)) {
+			continue
+		}
+		if best.Tag == "" || compareVersion(canonical(candidate.Tag), canonical(best.Tag)) > 0 {
+			best = candidate
+		}
+	}
+
+	if best.Tag == "" {
+		return Release{}, fmt.Errorf("%w for %s/%s with tag prefix %q",
+			ErrNoRelease, s.Owner, s.Repo, s.TagPrefix)
+	}
+	return best, nil
 }
 
 // Download implements [Source].
@@ -107,7 +174,12 @@ func (s *GitHubSource) Changelog(ctx context.Context, fromTag, toTag string) ([]
 			} `json:"commit"`
 		} `json:"commits"`
 	}
-	if err := s.getJSON(ctx, s.url("compare/"+fromTag+"..."+toTag), &payload); err != nil {
+	// The versions handed in come from [Release.Tag], which has TagPrefix
+	// stripped — but compare resolves git refs, and the refs that exist in the
+	// repository are the prefixed ones.
+	from := s.TagPrefix + fromTag
+	to := s.TagPrefix + toTag
+	if err := s.getJSON(ctx, s.url("compare/"+from+"..."+to), &payload); err != nil {
 		return nil, err
 	}
 

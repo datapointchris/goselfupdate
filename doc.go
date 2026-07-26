@@ -39,13 +39,26 @@
 //
 // # Versions
 //
-// Versions are compared with [golang.org/x/mod/semver]. A leading "v" is
-// optional on both the running version and the release tag, since goreleaser
-// configurations disagree about whether to inject {{.Tag}} or {{.Version}}.
+// Versions are compared by semantic version precedence, implemented here so the
+// package keeps no third-party dependencies. A leading "v" is optional on both
+// the running version and the release tag, since goreleaser configurations
+// disagree about whether to inject {{.Tag}} or {{.Version}}.
 //
 // A binary with no version injected reports itself as a development build and
 // refuses to update, because there is no meaningful version to compare and an
 // update would silently discard whatever local build was in place.
+//
+// # Release streams
+//
+// A repository publishing one component tags it v1.2.3 and needs no
+// configuration. A repository publishing several gives each its own prefix —
+// cli/v1.2.3, api/v2.0.0 — which is what Go requires of a module in a
+// subdirectory and what goreleaser calls a monorepo tag prefix.
+//
+// Set [Config.TagPrefix] to select a stream. GitHub's "latest release" endpoint
+// is repository-wide and would otherwise return whichever component released
+// most recently, so a prefix switches to the release list and filters it.
+// Reported tags have the prefix removed, leaving [Release.Tag] a version.
 //
 // [goreleaser]: https://goreleaser.com
 package goselfupdate

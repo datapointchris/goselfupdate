@@ -231,3 +231,125 @@ func TestTokenFromEnv(t *testing.T) {
 		t.Errorf("got %q, want from-github", got)
 	}
 }
+
+// A repository publishing several components interleaves their releases, and
+// GitHub's "latest release" endpoint has no notion of which one is wanted — so a
+// prefix has to select from the list, and the reported tag has to come back as a
+// bare version so nothing downstream sees the repository's tag layout.
+func TestGitHubSourceTagPrefixSelectsOneStream(t *testing.T) {
+	var requested string
+	source := newGitHubServer(t, func(w http.ResponseWriter, r *http.Request) {
+		requested = r.URL.Path
+		writeJSON(t, w, []map[string]any{
+			{"tag_name": "v9.0.0", "draft": false},
+			{"tag_name": "api/v3.1.0", "draft": false},
+			{"tag_name": "cli/v1.2.0", "draft": false, "assets": []map[string]any{
+				{"name": "tool_1.2.0_linux_amd64.tar.gz", "browser_download_url": "http://example/a"},
+			}},
+			{"tag_name": "cli/v1.1.0", "draft": false},
+		})
+	})
+	source.TagPrefix = "cli/"
+
+	release, err := source.LatestRelease(context.Background())
+	if err != nil {
+		t.Fatalf("LatestRelease: %v", err)
+	}
+	if !strings.HasSuffix(requested, "/releases") {
+		t.Errorf("requested %s, want the releases list", requested)
+	}
+	if release.Tag != "v1.2.0" {
+		t.Errorf("got %q, want the prefix stripped to a bare version", release.Tag)
+	}
+	if len(release.Assets) != 1 {
+		t.Errorf("assets not carried through: %v", release.Assets)
+	}
+}
+
+// Creation order and version order disagree whenever a patch to an older line
+// ships after a newer minor. Picking by position would offer a downgrade.
+func TestGitHubSourceTagPrefixPicksHighestVersionNotNewest(t *testing.T) {
+	source := newGitHubServer(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, []map[string]any{
+			{"tag_name": "cli/v1.4.1", "draft": false},
+			{"tag_name": "cli/v1.5.0", "draft": false},
+		})
+	})
+	source.TagPrefix = "cli/"
+
+	release, err := source.LatestRelease(context.Background())
+	if err != nil {
+		t.Fatalf("LatestRelease: %v", err)
+	}
+	if release.Tag != "v1.5.0" {
+		t.Errorf("got %q, want the highest version", release.Tag)
+	}
+}
+
+func TestGitHubSourceTagPrefixSkipsDraftsPrereleasesAndJunk(t *testing.T) {
+	source := newGitHubServer(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, []map[string]any{
+			{"tag_name": "cli/v2.0.0", "draft": true},
+			{"tag_name": "cli/v2.0.0-rc.1", "draft": false, "prerelease": true},
+			{"tag_name": "cli/nightly", "draft": false},
+			{"tag_name": "cli/v1.0.0", "draft": false},
+		})
+	})
+	source.TagPrefix = "cli/"
+
+	release, err := source.LatestRelease(context.Background())
+	if err != nil {
+		t.Fatalf("LatestRelease: %v", err)
+	}
+	if release.Tag != "v1.0.0" {
+		t.Errorf("got %q, want the newest released version", release.Tag)
+	}
+
+	source.AllowPrerelease = true
+	release, err = source.LatestRelease(context.Background())
+	if err != nil {
+		t.Fatalf("LatestRelease with prereleases: %v", err)
+	}
+	if release.Tag != "v2.0.0-rc.1" {
+		t.Errorf("got %q, want the prerelease once allowed", release.Tag)
+	}
+}
+
+// A repository with releases but none in the requested stream is ErrNoRelease,
+// not a silent fall through to another component's release.
+func TestGitHubSourceTagPrefixWithNoMatchingStream(t *testing.T) {
+	source := newGitHubServer(t, func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(t, w, []map[string]any{{"tag_name": "v1.0.0", "draft": false}})
+	})
+	source.TagPrefix = "cli/"
+
+	_, err := source.LatestRelease(context.Background())
+	if !errors.Is(err, ErrNoRelease) {
+		t.Fatalf("got %v, want ErrNoRelease", err)
+	}
+	if !strings.Contains(err.Error(), "cli/") {
+		t.Errorf("error should name the prefix that found nothing: %v", err)
+	}
+}
+
+// Release.Tag is a bare version, but compare resolves git refs and the refs in
+// the repository are the prefixed ones.
+func TestGitHubSourceChangelogRestoresTagPrefix(t *testing.T) {
+	source := newGitHubServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if !strings.Contains(r.URL.Path, "compare/cli/v1.0.0...cli/v1.1.0") {
+			t.Errorf("unexpected path %s", r.URL.Path)
+		}
+		writeJSON(t, w, map[string]any{
+			"commits": []map[string]any{{"commit": map[string]any{"message": "feat: a thing"}}},
+		})
+	})
+	source.TagPrefix = "cli/"
+
+	subjects, err := source.Changelog(context.Background(), "v1.0.0", "v1.1.0")
+	if err != nil {
+		t.Fatalf("Changelog: %v", err)
+	}
+	if len(subjects) != 1 || subjects[0] != "feat: a thing" {
+		t.Errorf("got %v", subjects)
+	}
+}

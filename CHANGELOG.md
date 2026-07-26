@@ -7,6 +7,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-07-26
+
+### Added
+
+- `Config.TagPrefix` and `GitHubSource.TagPrefix`, selecting one release stream
+  in a repository that publishes several (`cli/v1.2.3` alongside `v9.0.0`). Go
+  requires a module in a subdirectory to be tagged with it and goreleaser calls
+  it a monorepo tag prefix, but `releases/latest` is repository-wide, so
+  without this a CLI released from an application's repository resolved that
+  application's release and failed as "not a semantic version". Reported tags
+  have the prefix removed, leaving `Release.Tag` a version as documented, and
+  `Changelog` restores it when resolving git refs.
+
+  Selection within a prefixed stream is by highest version rather than by
+  position in the list, so a patch to an older line published after a newer
+  minor is not offered as an update. The unprefixed path is untouched.
+
+### Fixed
+
+- The package documentation claimed versions were compared with
+  `golang.org/x/mod/semver`. They are compared by the implementation in
+  `semver.go`, which exists precisely so the package has no third-party
+  dependencies.
+
 ## [0.1.0] - 2026-07-26
 
 Initial release.
@@ -44,5 +68,6 @@ Initial release.
   and carries [GO-2026-5932](https://pkg.go.dev/vuln/GO-2026-5932), which has
   no fixed version, so depending on it makes `govulncheck` permanently fail.
 
-[Unreleased]: https://github.com/datapointchris/goselfupdate/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/datapointchris/goselfupdate/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/datapointchris/goselfupdate/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/datapointchris/goselfupdate/releases/tag/v0.1.0

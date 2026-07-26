@@ -51,6 +51,15 @@ type Config struct {
 	// version. GitHub excludes them from its "latest release" endpoint, so
 	// enabling this changes which endpoint is used.
 	AllowPrerelease bool
+
+	// TagPrefix selects one release stream in a repository publishing several,
+	// as in "cli/" for tags of the form cli/v1.2.3. Empty is the single-stream
+	// default. See [GitHubSource.TagPrefix].
+	//
+	// Like Owner and Repo, this configures the default GitHub source and is
+	// unused when a custom Source is supplied — such a source owns its own tag
+	// layout and is expected to report versions in [Release.Tag].
+	TagPrefix string
 }
 
 func (c *Config) validate() error {
@@ -85,6 +94,7 @@ func (c Config) resolve() (Config, error) {
 			Token:           c.Token,
 			HTTPClient:      c.HTTPClient,
 			AllowPrerelease: c.AllowPrerelease,
+			TagPrefix:       c.TagPrefix,
 		}
 	}
 	if c.Verifier == nil {

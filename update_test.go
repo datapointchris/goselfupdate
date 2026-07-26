@@ -201,6 +201,25 @@ func TestConfigDefaultsToGitHubSource(t *testing.T) {
 	}
 }
 
+// TagPrefix has to reach the default source, which is the only thing that reads
+// it — a Config field that silently went nowhere would fail as "not a semantic
+// version" at the first Check.
+func TestConfigCarriesTagPrefixToGitHubSource(t *testing.T) {
+	resolved, err := Config{
+		Owner: "o", Repo: "r", Binary: "tool", Version: "v1.0.0", TagPrefix: "cli/",
+	}.resolve()
+	if err != nil {
+		t.Fatal(err)
+	}
+	source, ok := resolved.Source.(*GitHubSource)
+	if !ok {
+		t.Fatalf("Source is %T, want *GitHubSource", resolved.Source)
+	}
+	if source.TagPrefix != "cli/" {
+		t.Errorf("TagPrefix = %q, want it carried to the source", source.TagPrefix)
+	}
+}
+
 func TestChangelogReturnsNilForSourceWithout(t *testing.T) {
 	// A Source that does not implement Changeloger produces no changelog
 	// rather than an error.
