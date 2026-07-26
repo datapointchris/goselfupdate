@@ -61,6 +61,7 @@ only superseded — so a broken tag is permanent. Update `CHANGELOG.md` in the
 same commit.
 
 After tagging, bump the consumers: `go get -u github.com/datapointchris/goselfupdate`
-in `todoui`, `toolbox` and `forge`.
+in `todoui`, `toolbox` and `forge`. All three are on v0.1.0 and released with
+it (todoui v1.6.2, toolbox v1.7.1, forge v1.13.2).
 
 [GO-2026-5932]: https://pkg.go.dev/vuln/GO-2026-5932
