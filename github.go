@@ -63,7 +63,12 @@ type githubRelease struct {
 	Prerelease bool   `json:"prerelease"`
 	Assets     []struct {
 		Name string `json:"name"`
-		URL  string `json:"browser_download_url"`
+		// The API asset endpoint, not browser_download_url. The latter is a
+		// github.com link that ignores an Authorization header, so a private
+		// repository answers it with 404 however good the token is. The API
+		// URL authenticates and redirects to the same bytes, and works
+		// unauthenticated on a public repository, so it is right for both.
+		URL  string `json:"url"`
 		Size int64  `json:"size"`
 	} `json:"assets"`
 }
@@ -160,8 +165,10 @@ func (s *GitHubSource) highestPrefixedRelease(ctx context.Context) (Release, err
 }
 
 // Download implements [Source].
+// The asset endpoint serves metadata by default and the file itself only when
+// asked for bytes, so this Accept is what makes a download a download.
 func (s *GitHubSource) Download(ctx context.Context, asset Asset) ([]byte, error) {
-	return s.get(ctx, asset.URL)
+	return s.fetch(ctx, asset.URL, "application/octet-stream")
 }
 
 // Changelog implements [Changeloger], returning the subject line of every
@@ -213,11 +220,19 @@ func (s *GitHubSource) getJSON(ctx context.Context, url string, into any) error 
 }
 
 func (s *GitHubSource) get(ctx context.Context, url string) ([]byte, error) {
+	return s.fetch(ctx, url, "application/vnd.github+json")
+}
+
+// fetch performs an authenticated GET. accept distinguishes an API read from an
+// asset download; the redirect to the CDN that a download ends in drops the
+// Authorization header on its own, since net/http does not carry credentials
+// across hosts.
+func (s *GitHubSource) fetch(ctx context.Context, url, accept string) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Accept", "application/vnd.github+json")
+	req.Header.Set("Accept", accept)
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	if s.Token != "" {
 		req.Header.Set("Authorization", "Bearer "+s.Token)

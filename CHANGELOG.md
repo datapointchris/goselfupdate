@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-07-26
+
+### Fixed
+
+- Downloads from a private repository no longer fail with a 404. Assets were
+  fetched from `browser_download_url`, a github.com link that ignores an
+  `Authorization` header, so no token could authorize it. They now go through
+  the API asset endpoint with `Accept: application/octet-stream`, which
+  authenticates and works unauthenticated on a public repository too.
+  `Asset.URL` therefore carries the API URL — it is documented as where
+  `Source.Download` fetches from, which is what changed.
+
 ## [0.2.1] - 2026-07-26
 
 ### Fixed
@@ -81,7 +93,8 @@ Initial release.
   and carries [GO-2026-5932](https://pkg.go.dev/vuln/GO-2026-5932), which has
   no fixed version, so depending on it makes `govulncheck` permanently fail.
 
-[Unreleased]: https://github.com/datapointchris/goselfupdate/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/datapointchris/goselfupdate/compare/v0.2.2...HEAD
+[0.2.2]: https://github.com/datapointchris/goselfupdate/compare/v0.2.1...v0.2.2
 [0.2.1]: https://github.com/datapointchris/goselfupdate/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/datapointchris/goselfupdate/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/datapointchris/goselfupdate/releases/tag/v0.1.0

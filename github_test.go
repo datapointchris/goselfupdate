@@ -45,7 +45,7 @@ func TestGitHubSourceLatestRelease(t *testing.T) {
 		writeJSON(t, w, map[string]any{
 			"tag_name": "v1.2.0",
 			"assets": []map[string]any{
-				{"name": "tool_1.2.0_linux_amd64.tar.gz", "browser_download_url": "http://example/a", "size": 42},
+				{"name": "tool_1.2.0_linux_amd64.tar.gz", "url": "http://example/assets/1", "size": 42},
 			},
 		})
 	})
@@ -244,7 +244,7 @@ func TestGitHubSourceTagPrefixSelectsOneStream(t *testing.T) {
 			{"tag_name": "v9.0.0", "draft": false},
 			{"tag_name": "api/v3.1.0", "draft": false},
 			{"tag_name": "cli/v1.2.0", "draft": false, "assets": []map[string]any{
-				{"name": "tool_1.2.0_linux_amd64.tar.gz", "browser_download_url": "http://example/a"},
+				{"name": "tool_1.2.0_linux_amd64.tar.gz", "url": "http://example/assets/1"},
 			}},
 			{"tag_name": "cli/v1.1.0", "draft": false},
 		})
@@ -351,5 +351,55 @@ func TestGitHubSourceChangelogRestoresTagPrefix(t *testing.T) {
 	}
 	if len(subjects) != 1 || subjects[0] != "feat: a thing" {
 		t.Errorf("got %v", subjects)
+	}
+}
+
+// browser_download_url is a github.com link that ignores an Authorization
+// header, so a private repository answers it with 404 no matter how good the
+// token is. Downloads have to go through the API asset endpoint, which
+// authenticates — and that endpoint returns metadata unless asked for bytes.
+func TestGitHubSourceDownloadsThroughTheAPIAssetEndpoint(t *testing.T) {
+	var gotPath, gotAccept, gotAuth string
+	source := newGitHubServer(t, func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "/releases/latest") {
+			writeJSON(t, w, map[string]any{
+				"tag_name": "v1.2.0",
+				"assets": []map[string]any{{
+					"name":                 "tool_1.2.0_linux_amd64.tar.gz",
+					"url":                  "http://" + r.Host + "/repos/datapointchris/tool/releases/assets/7",
+					"browser_download_url": "http://" + r.Host + "/downloads/never-use-this",
+				}},
+			})
+			return
+		}
+		gotPath = r.URL.Path
+		gotAccept = r.Header.Get("Accept")
+		gotAuth = r.Header.Get("Authorization")
+		if _, err := w.Write([]byte("archive-bytes")); err != nil {
+			t.Fatal(err)
+		}
+	})
+	source.Token = "secret"
+
+	release, err := source.LatestRelease(context.Background())
+	if err != nil {
+		t.Fatalf("LatestRelease: %v", err)
+	}
+
+	body, err := source.Download(context.Background(), release.Assets[0])
+	if err != nil {
+		t.Fatalf("Download: %v", err)
+	}
+	if string(body) != "archive-bytes" {
+		t.Errorf("got %q", body)
+	}
+	if !strings.HasSuffix(gotPath, "/releases/assets/7") {
+		t.Errorf("downloaded from %s, want the API asset endpoint", gotPath)
+	}
+	if gotAccept != "application/octet-stream" {
+		t.Errorf("Accept = %q, want octet-stream so the endpoint serves bytes", gotAccept)
+	}
+	if gotAuth != "Bearer secret" {
+		t.Errorf("Authorization = %q, want the token so private assets resolve", gotAuth)
 	}
 }
