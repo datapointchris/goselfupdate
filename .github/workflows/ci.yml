@@ -8,15 +8,21 @@ on:
 permissions:
   contents: read
 
+# Windows runners default to PowerShell, which splits an argument like
+# -coverprofile=coverage.out at the '='.
+defaults:
+  run:
+    shell: bash
+
 jobs:
-  # The README claims Linux, macOS and Windows support and a Go 1.22 floor.
+  # The README claims Linux, macOS and Windows support and a Go 1.23 floor.
   # Both are only true if they are actually exercised.
   test:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        go: ["1.22", "stable"]
+        go: ["1.23", "stable"]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -63,9 +69,11 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Not go-version-file: golangci-lint v2 requires a newer Go than this
+      # module's floor, and linting does not need to run on the minimum.
       - uses: actions/setup-go@v7
         with:
-          go-version-file: go.mod
+          go-version: stable
 
       - name: golangci-lint
         run: |

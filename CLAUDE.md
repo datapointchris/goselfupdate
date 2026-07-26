@@ -24,7 +24,7 @@ merely convenient for the three internal consumers is not automatically right.
 - **cobra stays confined to `cobracmd/`.** Module graph pruning is what keeps a
   core-only consumer from downloading it, and that only holds while the core
   imports nothing.
-- **The Go floor is 1.22 and CI tests against it.** Raising it excludes callers
+- **The Go floor is 1.23 and CI tests against it.** Raising it excludes callers
   and needs a reason beyond convenience.
 - **`x/crypto/openpgp` is never linked.** Avoiding [GO-2026-5932] is the
   original reason this library exists.

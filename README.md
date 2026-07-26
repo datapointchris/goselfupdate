@@ -162,7 +162,7 @@ dependencies. Use `creativeprojects/go-selfupdate` if you need GitLab or Gitea.
 
 ## Requirements
 
-- Go 1.22 or newer.
+- Go 1.23 or newer.
 - Releases publishing per-platform archives and a checksums file.
 - A version injected at build time, e.g.
   `-ldflags "-X main.version={{.Version}}"`.
