@@ -116,6 +116,12 @@ func TestFindChecksumFormats(t *testing.T) {
 		strings.ToUpper(digest) + "  " + name,
 		"# a comment\n" + digest + "  " + name,
 		"other  file.tar.gz\n" + digest + "  " + name + "\nmore  x.tar.gz",
+		// `sha256sum ./*.tar.gz` records the path it was handed. The directory
+		// part is not part of the file's identity.
+		digest + "  ./" + name,
+		digest + "  dist/" + name,
+		digest + "  *./" + name,
+		digest + "  .\\" + name,
 	}
 
 	for _, checksums := range formats {
@@ -134,5 +140,33 @@ func TestNoVerificationAcceptsAnything(t *testing.T) {
 	err := NoVerification{}.Verify(context.Background(), nil, Release{}, Asset{}, []byte("anything"))
 	if err != nil {
 		t.Fatalf("NoVerification returned %v", err)
+	}
+}
+
+// A path-carrying entry must never win over an exact one: if a checksums file
+// distinguishes two paths that share a base name, resolving by base name would
+// be a guess between them.
+func TestFindChecksumPrefersExactOverBaseName(t *testing.T) {
+	name := "tool_1.0.0_linux_amd64.tar.gz"
+	exact := digestOf([]byte("exact"))
+	nested := digestOf([]byte("nested"))
+
+	checksums := nested + "  build/" + name + "\n" + exact + "  " + name + "\n"
+
+	got, err := findChecksum([]byte(checksums), name)
+	if err != nil {
+		t.Fatalf("findChecksum: %v", err)
+	}
+	if got != exact {
+		t.Errorf("got the nested entry %s, want the exact one %s", got, exact)
+	}
+}
+
+func TestFindChecksumStillReportsAGenuineMiss(t *testing.T) {
+	checksums := digestOf([]byte("x")) + "  some_other_tool.tar.gz\n"
+
+	_, err := findChecksum([]byte(checksums), "tool_1.0.0_linux_amd64.tar.gz")
+	if !errors.Is(err, ErrNoChecksums) {
+		t.Fatalf("got %v, want ErrNoChecksums", err)
 	}
 }

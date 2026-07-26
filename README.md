@@ -90,7 +90,7 @@ build was in place.
 | Naming | `_` or `-` separated; `x86_64`/`amd64`, `aarch64`/`arm64`, `macos`/`darwin` |
 | macOS | Universal (`darwin_all`) binaries, used only when no native asset exists |
 | Nesting | Binary at the archive root or in a subdirectory; `.exe` tolerated |
-| Checksums | `sha256sum` and goreleaser formats, with or without the binary-mode `*` |
+| Checksums | `sha256sum` and goreleaser formats, with or without the binary-mode `*` or a leading path |
 | Tags | `v1.2.3`, or `cli/v1.2.3` in a repository publishing several components |
 
 goreleaser's defaults satisfy all of this with no configuration.

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-07-26
+
+### Fixed
+
+- A checksums entry naming a path (`./tool_1.0.0_linux_amd64.tar.gz`, as
+  `sha256sum ./*.tar.gz` records it) no longer fails verification with
+  `ErrNoChecksums`. `sha256sum` echoes its arguments verbatim, so the directory
+  part is an artifact of how the CI step was written, not part of the file's
+  identity. An exact match still wins outright; the base name is consulted only
+  when nothing matched exactly, so a file deliberately distinguishing two paths
+  is never resolved by guessing. Both separators are honored, since a Linux
+  runner's `./x` has to resolve on Windows.
+
 ## [0.2.0] - 2026-07-26
 
 ### Added
@@ -68,6 +81,7 @@ Initial release.
   and carries [GO-2026-5932](https://pkg.go.dev/vuln/GO-2026-5932), which has
   no fixed version, so depending on it makes `govulncheck` permanently fail.
 
-[Unreleased]: https://github.com/datapointchris/goselfupdate/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/datapointchris/goselfupdate/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/datapointchris/goselfupdate/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/datapointchris/goselfupdate/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/datapointchris/goselfupdate/releases/tag/v0.1.0
