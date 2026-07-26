@@ -1,0 +1,21 @@
+# Go
+vendor/
+
+# Task
+.task/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# direnv
+.envrc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Planning (local only)
+.planning

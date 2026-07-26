@@ -1,0 +1,51 @@
+version: "2"
+run:
+  modules-download-mode: readonly
+linters:
+  enable:
+    - gocritic
+    - misspell
+    - nakedret
+    - unconvert
+    - wastedassign
+  settings:
+    errcheck:
+      check-type-assertions: false
+      check-blank: false
+    gocritic:
+      enabled-tags:
+        - diagnostic
+    govet:
+      disable:
+        - fieldalignment
+        - shadow
+      enable-all: true
+    misspell:
+      locale: US
+    nakedret:
+      max-func-lines: 20
+  exclusions:
+    generated: lax
+    rules:
+      - linters:
+          - errcheck
+        text: Error return value of `fmt.Fprint
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+formatters:
+  enable:
+    - gofumpt
+  settings:
+    gofumpt:
+      extra-rules: false
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
