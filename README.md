@@ -127,7 +127,8 @@ Everything beyond the four required fields has a working default.
 
 | Field | Default | Purpose |
 | --- | --- | --- |
-| `Token` | `$GITHUB_TOKEN`, then `$GH_TOKEN` | Raises GitHub's 60 requests/hour limit; required for private repositories, for both the release lookup and the asset download |
+| `Token` | `$GITHUB_TOKEN`, then `$GH_TOKEN`, then `TokenFunc` | Raises GitHub's 60 requests/hour limit; required for private repositories, for both the release lookup and the asset download |
+| `TokenFunc` | none | Resolves a token only when a request is about to be made — for a credential that costs a keychain prompt or a `gh auth token` subprocess |
 | `HTTPClient` | 60-second timeout | Proxies, retries, custom timeouts |
 | `Source` | GitHub | Another forge, or a private mirror |
 | `Verifier` | `ChecksumVerifier` | Signature verification, or `NoVerification` |

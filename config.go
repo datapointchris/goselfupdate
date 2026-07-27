@@ -31,8 +31,20 @@ type Config struct {
 
 	// Token authenticates requests to the release source. Without one, GitHub
 	// allows 60 API requests per hour per IP address and rejects private
-	// repositories outright. Defaults to $GITHUB_TOKEN, then $GH_TOKEN.
+	// repositories outright. Defaults to $GITHUB_TOKEN, then $GH_TOKEN, then
+	// [Config.TokenFunc].
 	Token string
+
+	// TokenFunc resolves a token when Token is empty and neither environment
+	// variable is set. Returning "" leaves the request unauthenticated.
+	//
+	// It exists because a credential can be expensive to obtain — a keychain
+	// prompt, a `gh auth token` subprocess — and it is called only when a
+	// request is actually about to be made. A caller that resolves such a token
+	// eagerly into Token instead pays for it on every invocation, including the
+	// ones where [autoupdate] declines to check at all; that gate is otherwise
+	// free, and a subprocess spawn in front of it is the entire cost.
+	TokenFunc func() string
 
 	// HTTPClient performs every request. Defaults to a client with
 	// [DefaultTimeout]. Supply one to control proxies, retries or timeouts.
@@ -86,6 +98,9 @@ func (c Config) resolve() (Config, error) {
 	}
 	if c.Token == "" {
 		c.Token = tokenFromEnv()
+	}
+	if c.Token == "" && c.TokenFunc != nil {
+		c.Token = c.TokenFunc()
 	}
 	if c.Source == nil {
 		c.Source = &GitHubSource{

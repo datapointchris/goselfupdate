@@ -220,6 +220,83 @@ func TestConfigCarriesTagPrefixToGitHubSource(t *testing.T) {
 	}
 }
 
+// TokenFunc is the fallback of last resort, so an explicit Token and both
+// environment variables have to win over it — a caller that already has a
+// credential must never pay for the expensive one.
+func TestTokenFuncIsOnlyConsultedWhenNothingElseSuppliesTheToken(t *testing.T) {
+	cases := []struct {
+		name        string
+		token       string
+		environment map[string]string
+		want        string
+		wantCalls   int
+	}{
+		{name: "nothing else", want: "from-func", wantCalls: 1},
+		{name: "explicit token", token: "explicit", want: "explicit"},
+		{name: "GH_TOKEN", environment: map[string]string{"GH_TOKEN": "from-gh"}, want: "from-gh"},
+		{name: "GITHUB_TOKEN", environment: map[string]string{"GITHUB_TOKEN": "from-env"}, want: "from-env"},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Setenv("GITHUB_TOKEN", "")
+			t.Setenv("GH_TOKEN", "")
+			for name, value := range testCase.environment {
+				t.Setenv(name, value)
+			}
+
+			calls := 0
+			resolved, err := Config{
+				Owner: "o", Repo: "r", Binary: "tool", Version: "v1.0.0",
+				Token: testCase.token,
+				TokenFunc: func() string {
+					calls++
+					return "from-func"
+				},
+			}.resolve()
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if resolved.Token != testCase.want {
+				t.Errorf("Token = %q, want %q", resolved.Token, testCase.want)
+			}
+			if calls != testCase.wantCalls {
+				t.Errorf("TokenFunc called %d times, want %d", calls, testCase.wantCalls)
+			}
+			source, ok := resolved.Source.(*GitHubSource)
+			if !ok {
+				t.Fatalf("Source is %T, want *GitHubSource", resolved.Source)
+			}
+			if source.Token != testCase.want {
+				t.Errorf("source token = %q, want it carried from the config", source.Token)
+			}
+		})
+	}
+}
+
+// The whole point of TokenFunc is that it is not called until a request is
+// about to be made. Building a Config must therefore be free, because the
+// autoupdate gate runs against one on every invocation and declines most of
+// them without ever reaching the network.
+func TestBuildingAConfigDoesNotCallTokenFunc(t *testing.T) {
+	called := false
+	config := Config{
+		Owner: "o", Repo: "r", Binary: "tool", Version: "v1.0.0",
+		TokenFunc: func() string {
+			called = true
+			return ""
+		},
+	}
+
+	if err := config.validate(); err != nil {
+		t.Fatal(err)
+	}
+	if called {
+		t.Error("TokenFunc ran before a request was made")
+	}
+}
+
 func TestChangelogReturnsNilForSourceWithout(t *testing.T) {
 	// A Source that does not implement Changeloger produces no changelog
 	// rather than an error.

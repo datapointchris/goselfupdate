@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `Config.TokenFunc` — resolves a token only when a request is about to be
+  made, after `autoupdate`'s gate has decided to check. A credential that costs
+  a subprocess (`gh auth token`) or a keychain read cannot be assigned to
+  `Token` without paying for it on every invocation, including the ones that
+  skip the check entirely. Consulted last, so an explicit `Token`,
+  `$GITHUB_TOKEN` and `$GH_TOKEN` all still win.
+
 ## [0.3.0] - 2026-07-27
 
 ### Added
