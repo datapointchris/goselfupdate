@@ -10,17 +10,21 @@ merely convenient for the three internal consumers is not automatically right.
 ## Layout
 
 | Path | Holds |
-|---|---|
+| --- | --- |
 | root package | The library. Standard library imports only |
-| `cobracmd/` | The cobra `update` command. The only package importing cobra |
+| `autoupdate/` | The notify layer: gate, interval, state file. Also stdlib-only |
+| `cobracmd/` | The cobra `update` command and `Execute`. The only package importing cobra |
 | `semver.go` | Version comparison, replacing `x/mod/semver` |
 
 ## Constraints that must not regress
 
-- **The core package has zero third-party dependencies.** CI enforces it. This
-  is the library's main differentiator against the alternatives, and the reason
-  `semver.go` exists rather than importing `x/mod/semver`, which raises its
-  minimum Go version over time and would push that floor onto every caller.
+- **The core package *and* `autoupdate/` have zero third-party dependencies.**
+  CI enforces both. This is the library's main differentiator against the
+  alternatives, and the reason `semver.go` exists rather than importing
+  `x/mod/semver`, which raises its minimum Go version over time and would push
+  that floor onto every caller. `autoupdate` hand-rolls terminal detection
+  (`os.Stat` + `ModeCharDevice`, not `x/term`) and duration parsing
+  (`time.ParseDuration` rejects `7d`) for the same reason.
 - **cobra stays confined to `cobracmd/`.** Module graph pruning is what keeps a
   core-only consumer from downloading it, and that only holds while the core
   imports nothing.
@@ -34,6 +38,32 @@ merely convenient for the three internal consumers is not automatically right.
   template**, and an ambiguous match is an error rather than a guess.
 - **Errors are sentinels.** A new failure mode gets an `Err*` in `errors.go`;
   callers must never have to match on message text.
+- **`autoupdate` never prints an error and never fails a command.** The explicit
+  `update` command prints errors; a failed check goes to the state file and is
+  swallowed. This is what stops a dev build printing an upgrade failure on every
+  invocation, and it is a design rule rather than scattered guards.
+- **The last-checked timestamp is written before the network call.** `gh` stamps
+  only on success, so a rate-limited or offline user re-hits the API on every
+  invocation until the window resets. There is a test named for it, and it
+  caught a real bug: the first implementation stamped a *copy*, and the write
+  after the check clobbered the timestamp back to zero.
+- **The `autoupdate.json` schema is shared with pyselfupdate and
+  bashselfupdate.** Adding a field is safe; renaming or repurposing one breaks
+  the other two and any dashboard reading them.
+
+## Why IsReleaseVersion exists separately from IsValidVersion
+
+A Go build pseudo-version — `v1.6.1-0.20260724161156-2c04703+dirty` — is
+**valid semver**. `0.20260724161156-2c04703` is a legal pre-release identifier,
+so it parses cleanly and sorts below `v1.6.1` exactly as the specification says.
+A caller asking "is this a real release" therefore cannot use `IsValidVersion`,
+and every consumer had independently reimplemented the same `^v\d+\.\d+\.\d+$`
+regex to get the right answer. It belongs here.
+
+The siblings hit the identical trap from the other direction: `git describe`
+output (`v1.2.3-4-gabc1234`) is also valid semver, and pyselfupdate reads uv's
+install receipt rather than any version string. The general rule the three
+share: **ask whatever recorded the fact, never infer it from a version.**
 
 ## Testing
 
@@ -44,6 +74,13 @@ drives the real HTTP path against `httptest`.
 binary, so tests call `UpdateTo` with an explicit path and the cobra command is
 exercised through `--check`. Never write a test that calls `Update` directly —
 it would overwrite the test binary.
+
+`autoupdate` is tested through a `stubSource` that counts how often it was
+asked. Most of those tests assert that *nothing* happened, so the call count and
+the absence of a state file are the real assertions — a skip that still reached
+the network is a skip that failed. Terminal detection is injected via
+`Config.Interactive` rather than faked, because a test process has no terminal
+and reassigning `os.Stdout` would not survive.
 
 `FuzzParseVersion` guards the hand-written version parser; CI runs it for 60
 seconds per build. `TestCompareVersionFollowsSpecPrecedence` asserts the full

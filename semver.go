@@ -200,3 +200,37 @@ func compareIdentifier(a, b string) int {
 		return strings.Compare(a, b)
 	}
 }
+
+// Canonical returns a version with the leading "v" this package prints
+// versions with. Tags carry one and build metadata often does not, so both
+// forms reach a caller and have to be reported the same way.
+func Canonical(version string) string {
+	return canonical(version)
+}
+
+// IsValidVersion reports whether text is a semantic version.
+func IsValidVersion(text string) bool {
+	return isValidVersion(text)
+}
+
+// IsReleaseVersion reports whether text is a plain vX.Y.Z release, with no
+// pre-release and no build metadata.
+//
+// Stricter than [IsValidVersion] on purpose, and the distinction is the whole
+// reason this exists. Go stamps a VCS-derived pseudo-version such as
+// v1.6.1-0.20260724161156-2c04703+dirty onto local builds, and that string is
+// *valid semver*: "0.20260724161156-2c04703" is a legal pre-release identifier,
+// so it parses and sorts below v1.6.1 exactly as the specification says. A
+// caller asking "is this a real release" therefore cannot use IsValidVersion.
+//
+// Every consumer had reimplemented this regex; it belongs here.
+func IsReleaseVersion(text string) bool {
+	parsed, ok := parseVersion(text)
+	if !ok || parsed.prerelease != "" {
+		return false
+	}
+	// parseVersion accepts one or two components and zero-fills; a release
+	// version has all three written out, and build metadata disqualifies it.
+	return strings.Count(strings.TrimPrefix(text, "v"), ".") == 2 &&
+		!strings.Contains(text, "+")
+}

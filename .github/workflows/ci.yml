@@ -97,18 +97,25 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@v1.1.4
           govulncheck ./...
 
-      # The core package's selling point is having no dependencies. A stray
-      # import in a future change would silently remove it.
-      - name: Core package has no third-party dependencies
+      # The selling point is having no dependencies. A stray import in a future
+      # change would silently remove it, and nothing else in CI would notice.
+      #
+      # autoupdate is checked alongside the core because it is the package most
+      # likely to reach for a convenience: x/term for terminal detection, or a
+      # duration parser. Both are hand-rolled precisely to keep this true, and a
+      # consumer that wants notify without cobra must not be made to link it.
+      - name: Core and autoupdate have no third-party dependencies
         run: |
           module="$(go list -m)"
-          external="$(go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' . \
-            | grep -v "^${module}\$" | grep -v "^${module}/" || true)"
-          if [ -n "$external" ]; then
-            echo "the core package gained third-party dependencies:"
-            echo "$external"
-            exit 1
-          fi
+          for package in . ./autoupdate; do
+            external="$(go list -deps -f '{{if not .Standard}}{{.ImportPath}}{{end}}' "$package" \
+              | grep -v "^${module}\$" | grep -v "^${module}/" || true)"
+            if [ -n "$external" ]; then
+              echo "$package gained third-party dependencies:"
+              echo "$external"
+              exit 1
+            fi
+          done
 
   fuzz:
     runs-on: ubuntu-latest

@@ -84,7 +84,7 @@ build was in place.
 ## Supported release layouts
 
 | Aspect | Supported |
-|---|---|
+| --- | --- |
 | Archives | `.tar.gz`, `.tgz`, `.zip`, and bare uncompressed binaries |
 | Platforms | Linux, macOS, Windows, and other Unix targets |
 | Naming | `_` or `-` separated; `x86_64`/`amd64`, `aarch64`/`arm64`, `macos`/`darwin` |
@@ -126,7 +126,7 @@ Tags come back with the prefix removed, so `Release.Tag`, `Result.From` and
 Everything beyond the four required fields has a working default.
 
 | Field | Default | Purpose |
-|---|---|---|
+| --- | --- | --- |
 | `Token` | `$GITHUB_TOKEN`, then `$GH_TOKEN` | Raises GitHub's 60 requests/hour limit; required for private repositories, for both the release lookup and the asset download |
 | `HTTPClient` | 60-second timeout | Proxies, retries, custom timeouts |
 | `Source` | GitHub | Another forge, or a private mirror |
@@ -168,6 +168,64 @@ Deliberately absent: this package does not link `golang.org/x/crypto/openpgp`,
 which is unmaintained and carries a permanent advisory ([GO-2026-5932]) with no
 fixed version. A project depending on it cannot run `govulncheck` clean.
 
+## Telling the user without installing
+
+`autoupdate` is the other half: it checks once a day and prints one line. It
+never installs, so the `update` command above stays the only thing that writes
+a binary.
+
+```go
+import "github.com/datapointchris/goselfupdate/autoupdate"
+
+func main() {
+    config := autoupdate.Config{Update: goselfupdate.Config{
+        Owner: "you", Repo: "tool", Binary: "tool", Version: version,
+    }}
+
+    if err := cobracmd.Execute(context.Background(), rootCmd, config); err != nil {
+        os.Exit(1)
+    }
+}
+```
+
+Once per 24 hours, if a newer release exists, one line goes to stderr **after**
+your command's own output:
+
+```text
+tool v1.4.0 available (running v1.3.2) — run `tool update`
+```
+
+The check runs concurrently with your command and is abandoned if the command
+finishes first, so a fast command pays nothing. It never returns an error and
+never prints one: a failed check is recorded in the state file and swallowed,
+because an update notice must not be able to break the command the user typed.
+
+Nothing is printed when any of these hold:
+
+| Condition | Why |
+| --- | --- |
+| `NO_AUTO_UPDATE` or `TOOL_NO_AUTO_UPDATE` is set | Opted out |
+| `CI`, `BUILD_NUMBER`, `RUN_ID`, `GITHUB_ACTIONS`, `CODESPACES` | Not a human |
+| stdout or stderr is not a terminal | `tool list > out 2>&1` must stay clean |
+| The version is not a plain `vX.Y.Z` | A development build |
+| The command is `update`, `version`, `completion` or a shell-completion callback | Would be pointless or constant |
+| Checked within the interval | One request per day, not per invocation |
+
+Presence-only, any value: `NO_AUTO_UPDATE=0` disables it, the same way
+[`NO_COLOR`](https://no-color.org) works. Set the interval separately with
+`AUTO_UPDATE_INTERVAL=6h` or `TOOL_AUTO_UPDATE_INTERVAL=30m`.
+
+`Config.Interactive` overrides terminal detection — pass `false` from a program
+that already knows it is writing into a pager or a structured-output mode.
+
+State lives in `${XDG_STATE_HOME:-~/.local/state}/<tool>/autoupdate.json`,
+written atomically, and the timestamp is written **before** the network call —
+`gh` stamps only on success, so a rate-limited or offline user re-hits the API
+on every invocation until the window resets.
+
+`autoupdate` links nothing outside the standard library, so adding a notice to
+a CLI adds no dependencies. Only `cobracmd` imports cobra.
+
 ## Scope
 
 Provided: GitHub releases and checksum verification. GitLab, Gitea and
@@ -180,7 +238,7 @@ update channels beyond the prerelease toggle.
 ## Alternatives
 
 | Package | Notes |
-|---|---|
+| --- | --- |
 | [creativeprojects/go-selfupdate] | Broadest source support (GitHub, GitLab, Gitea, HTTP). Links `x/crypto/openpgp` for signature verification, so it carries [GO-2026-5932]; pulls in ~14 modules |
 | [minio/selfupdate] | Applies an update with minisign verification. Does not locate releases — that half is yours to write |
 | [sanbornm/go-selfupdate] | The original. Binary-diff patching against your own update server |

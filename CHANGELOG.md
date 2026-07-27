@@ -1,5 +1,22 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `autoupdate` — the notify half. Checks once a day and prints one line; never
+  installs, never errors, never fails a command. Gated on an opt-out variable,
+  CI detection, terminal detection, a plain-release version, and the interval.
+  Stdlib-only, like the core.
+- `cobracmd.Execute` — runs a cobra root with the check racing alongside it, so
+  the notice prints after the command's output and a fast command pays nothing.
+  Suppresses `update`, `version`, `completion` and cobra's shell-completion
+  callback, walking the command ancestry rather than only the leaf.
+- `IsReleaseVersion`, `IsValidVersion` and `Canonical` — the plain-`vX.Y.Z`
+  check every consumer had reimplemented, exported so they stop.
+- A shared `autoupdate.json` state schema, identical to pyselfupdate's and
+  bashselfupdate's.
+
 All notable changes to this project are documented here.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
