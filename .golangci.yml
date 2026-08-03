@@ -12,6 +12,10 @@ linters:
     errcheck:
       check-type-assertions: false
       check-blank: false
+      exclude-functions:
+        - (*github.com/fatih/color.Color).Printf
+        - (*github.com/fatih/color.Color).Print
+        - (*github.com/fatih/color.Color).Println
     gocritic:
       enabled-tags:
         - diagnostic
@@ -26,10 +30,6 @@ linters:
       max-func-lines: 20
   exclusions:
     generated: lax
-    rules:
-      - linters:
-          - errcheck
-        text: Error return value of `fmt.Fprint
     paths:
       - third_party$
       - builtin$
