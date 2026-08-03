@@ -90,7 +90,7 @@ the release's published checksums. No Go toolchain required.`, cfg.Binary),
 
 			result, err := run(cmd.Context(), cfg)
 			if err != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "✗ %s upgrade failed: %s\n", cfg.Binary, err)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "✗ %s upgrade failed: %s\n", cfg.Binary, err)
 				return fmt.Errorf("%w: %w", ErrReported, err)
 			}
 
@@ -107,14 +107,14 @@ the release's published checksums. No Go toolchain required.`, cfg.Binary),
 
 func report(ctx context.Context, out io.Writer, cfg goselfupdate.Config, opts Options, result goselfupdate.Result) {
 	if !result.UpdateAvailable() {
-		fmt.Fprintf(out, "✓ %s already at latest: %s\n", cfg.Binary, result.To)
+		_, _ = fmt.Fprintf(out, "✓ %s already at latest: %s\n", cfg.Binary, result.To)
 		return
 	}
 
 	if result.Applied {
-		fmt.Fprintf(out, "✓ %s upgraded: %s → %s\n", cfg.Binary, result.From, result.To)
+		_, _ = fmt.Fprintf(out, "✓ %s upgraded: %s → %s\n", cfg.Binary, result.From, result.To)
 	} else {
-		fmt.Fprintf(out, "✓ %s update available: %s → %s\n", cfg.Binary, result.From, result.To)
+		_, _ = fmt.Fprintf(out, "✓ %s update available: %s → %s\n", cfg.Binary, result.From, result.To)
 	}
 
 	if opts.SkipChangelog {
@@ -126,9 +126,9 @@ func report(ctx context.Context, out io.Writer, cfg goselfupdate.Config, opts Op
 		return
 	}
 
-	fmt.Fprintln(out)
-	fmt.Fprintln(out, "Changes:")
+	_, _ = fmt.Fprintln(out)
+	_, _ = fmt.Fprintln(out, "Changes:")
 	for _, subject := range subjects {
-		fmt.Fprintf(out, "  • %s\n", subject)
+		_, _ = fmt.Fprintf(out, "  • %s\n", subject)
 	}
 }

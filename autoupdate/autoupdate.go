@@ -174,7 +174,7 @@ func (s *Session) Finish() Outcome {
 	}
 
 	if s.outcome.UpdateAvailable() {
-		fmt.Fprintf(s.config.Out, "%s %s available (running %s) — run `%s update`\n",
+		_, _ = fmt.Fprintf(s.config.Out, "%s %s available (running %s) — run `%s update`\n",
 			s.config.Tool, s.outcome.Latest, s.outcome.Current, s.config.Tool)
 	}
 	return s.outcome
