@@ -393,7 +393,7 @@ func TestParseInterval(t *testing.T) {
 
 	for _, raw := range []string{"", "soon", "-1h", "h", "abc"} {
 		if _, ok := parseInterval(raw); ok {
-			t.Errorf("parseInterval(%q) accepted an unparseable value", raw)
+			t.Errorf("parseInterval(%q) accepted an unparsable value", raw)
 		}
 	}
 }
