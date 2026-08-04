@@ -40,7 +40,7 @@ merely convenient for the three internal consumers is not automatically right.
   callers must never have to match on message text.
 - **`autoupdate` never prints an error and never fails a command.** The explicit
   `update` command prints errors; a failed check goes to the state file and is
-  swallowed. This is what stops a dev build printing an upgrade failure on every
+  swallowed. This is what stops a dev build printing an update failure on every
   invocation, and it is a design rule rather than scattered guards.
 - **The last-checked timestamp is written before the network call.** `gh` stamps
   only on success, so a rate-limited or offline user re-hits the API on every

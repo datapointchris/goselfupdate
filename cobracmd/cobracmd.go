@@ -43,10 +43,11 @@ var ErrReported = errors.New("already reported")
 // Options adjusts the generated command.
 type Options struct {
 	// Use overrides the command name. Defaults to "update".
+	//
+	// There is deliberately no alias knob. `update` is the fleet's one
+	// self-update verb, and an alias is what let `upgrade` coexist with it
+	// across every CLI without anyone choosing it.
 	Use string
-
-	// Aliases overrides the command's aliases. Defaults to "upgrade".
-	Aliases []string
 
 	// Changelog prints the commits between the two versions after a
 	// successful update. Enabled by default; it costs one extra request and is
@@ -63,16 +64,12 @@ func New(cfg goselfupdate.Config, options ...Options) *cobra.Command {
 	if opts.Use == "" {
 		opts.Use = "update"
 	}
-	if opts.Aliases == nil {
-		opts.Aliases = []string{"upgrade"}
-	}
 
 	var checkOnly bool
 
 	cmd := &cobra.Command{
-		Use:     opts.Use,
-		Aliases: opts.Aliases,
-		Short:   fmt.Sprintf("Update %s to the latest release", cfg.Binary),
+		Use:   opts.Use,
+		Short: fmt.Sprintf("Update %s to the latest release", cfg.Binary),
 		Long: fmt.Sprintf(`Download and install the latest %s release from GitHub.
 
 Replaces the running binary with a pre-built release archive, verified against
@@ -90,7 +87,7 @@ the release's published checksums. No Go toolchain required.`, cfg.Binary),
 
 			result, err := run(cmd.Context(), cfg)
 			if err != nil {
-				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "✗ %s upgrade failed: %s\n", cfg.Binary, err)
+				_, _ = fmt.Fprintf(cmd.ErrOrStderr(), "✗ %s update failed: %s\n", cfg.Binary, err)
 				return fmt.Errorf("%w: %w", ErrReported, err)
 			}
 
@@ -112,7 +109,7 @@ func report(ctx context.Context, out io.Writer, cfg goselfupdate.Config, opts Op
 	}
 
 	if result.Applied {
-		_, _ = fmt.Fprintf(out, "✓ %s upgraded: %s → %s\n", cfg.Binary, result.From, result.To)
+		_, _ = fmt.Fprintf(out, "✓ %s updated: %s → %s\n", cfg.Binary, result.From, result.To)
 	} else {
 		_, _ = fmt.Fprintf(out, "✓ %s update available: %s → %s\n", cfg.Binary, result.From, result.To)
 	}

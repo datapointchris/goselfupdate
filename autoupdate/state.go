@@ -4,7 +4,7 @@
 // It never installs. [goselfupdate.Update] installs, and the command wrapping
 // it is where errors are printed; a failure here is recorded in the state file
 // and swallowed. That single rule is what keeps a development build from
-// printing an upgrade failure on every invocation.
+// printing an update failure on every invocation.
 //
 //	session := autoupdate.Start(ctx, autoupdate.Config{
 //		Update: goselfupdate.Config{Owner: "you", Repo: "tool", Binary: "tool", Version: version},

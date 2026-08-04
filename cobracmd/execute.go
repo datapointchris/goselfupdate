@@ -17,7 +17,6 @@ import (
 // what a script calls to find out what is installed.
 var neverAutoUpdate = map[string]bool{
 	"update":                        true,
-	"upgrade":                       true,
 	"version":                       true,
 	"completion":                    true,
 	"help":                          true,

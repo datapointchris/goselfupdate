@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"errors"
-	"slices"
 	"strings"
 	"testing"
 
@@ -122,7 +121,7 @@ func TestFailureIsReportedOnceAndWrapped(t *testing.T) {
 	if count := strings.Count(out, "✗"); count != 1 {
 		t.Errorf("failure reported %d times:\n%s", count, out)
 	}
-	if !strings.Contains(out, "✗ tool upgrade failed:") {
+	if !strings.Contains(out, "✗ tool update failed:") {
 		t.Errorf("unexpected output:\n%s", out)
 	}
 }
@@ -139,33 +138,33 @@ func TestSourceErrorIsSurfaced(t *testing.T) {
 	}
 }
 
-func TestDefaultNameAndAlias(t *testing.T) {
+// `update` is the fleet's one self-update verb, so the command carries no
+// aliases at all -- `upgrade` in particular must not resolve.
+func TestDefaultNameAndNoAliases(t *testing.T) {
 	cmd := cobracmd.New(config(stubSource{tag: "v1.0.0"}, "v1.0.0"))
 
 	if cmd.Use != "update" {
 		t.Errorf("Use = %q, want update", cmd.Use)
 	}
-	if !slices.Contains(cmd.Aliases, "upgrade") {
-		t.Errorf("Aliases = %v, want to contain upgrade", cmd.Aliases)
+	if len(cmd.Aliases) != 0 {
+		t.Errorf("Aliases = %v, want none", cmd.Aliases)
 	}
-	// Cobra derives Name from Use, so an alias invocation still reports the
-	// canonical name. Callers keying off cmd.Name() depend on this.
 	if cmd.Name() != "update" {
 		t.Errorf("Name() = %q, want update", cmd.Name())
 	}
 }
 
-func TestOptionsOverrideNameAndAliases(t *testing.T) {
+func TestOptionsOverrideName(t *testing.T) {
 	cmd := cobracmd.New(
 		config(stubSource{tag: "v1.0.0"}, "v1.0.0"),
-		cobracmd.Options{Use: "self-update", Aliases: []string{"selfup"}},
+		cobracmd.Options{Use: "self-update"},
 	)
 
 	if cmd.Use != "self-update" {
 		t.Errorf("Use = %q", cmd.Use)
 	}
-	if !slices.Contains(cmd.Aliases, "selfup") || slices.Contains(cmd.Aliases, "upgrade") {
-		t.Errorf("Aliases = %v", cmd.Aliases)
+	if len(cmd.Aliases) != 0 {
+		t.Errorf("Aliases = %v, want none", cmd.Aliases)
 	}
 }
 

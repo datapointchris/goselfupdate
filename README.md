@@ -36,7 +36,7 @@ root.AddCommand(cobracmd.New(goselfupdate.Config{
 
 ```console
 $ todoui update
-✓ todoui upgraded: v1.6.0 → v1.6.1
+✓ todoui updated: v1.6.0 → v1.6.1
 
 Changes:
   • fix(sync): refresh from the API before CLI commands
@@ -46,9 +46,11 @@ $ todoui update --check
 ✓ todoui update available: v1.6.0 → v1.6.1
 ```
 
-`upgrade` is registered as an alias. This subpackage is the only thing that
-imports cobra — projects using `flag`, `urfave/cli` or anything else pull in
-nothing by importing the core.
+The command carries no aliases. `update` is the fleet's one self-update verb,
+and an alias is what let `upgrade` coexist with it across every CLI without
+anyone choosing it. This subpackage is the only thing that imports cobra —
+projects using `flag`, `urfave/cli` or anything else pull in nothing by
+importing the core.
 
 ## What it does
 
