@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-08-04
+
+### Removed
+
+- `cobracmd.Options.Aliases`, and the `upgrade` alias it defaulted to. Every
+  consumer inherited two spellings of one verb without choosing either, and an
+  alias knob is the mechanism by which a second verb survives a decision to
+  have one. `Options.Use` still renames the command. Consumers passing
+  `Options{Aliases: ...}` will not compile; drop the field.
+- `"upgrade"` from `cobracmd`'s auto-update suppression list. It was already
+  dead — the list matches `cmd.Name()`, which cobra derives from `Use` and
+  never from an alias.
+
+### Changed
+
+- The command reports in the verb that ran it: `✓ <tool> updated` and
+  `✗ <tool> update failed`, where it previously said "upgraded" and "upgrade
+  failed" while `--check` and the daily notice already said "update".
+
 ## [0.4.0] - 2026-07-27
 
 ### Added

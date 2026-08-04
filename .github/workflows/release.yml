@@ -2,7 +2,7 @@ name: Release
 
 on:
   push:
-    tags: ["v*"]
+    branches: [main]
 
 permissions:
   contents: read
@@ -10,7 +10,13 @@ permissions:
 jobs:
   # A library ships as a git tag, so the only thing that must hold is that the
   # tagged commit is green. Publishing a broken tag is unfixable: the module
-  # proxy caches it permanently and it cannot be retracted, only superseded.
+  # proxy serves any tagged version on demand, caches it permanently, and it
+  # cannot be retracted, only superseded.
+  #
+  # Running before the tag exists is the point. While releases were cut by hand
+  # the trigger was the tag itself, so `git push origin v0.5.0` had already
+  # published the module by the time these checks ran — they gated the GitHub
+  # Release object, which nothing resolves a module from.
   validate:
     strategy:
       fail-fast: false
@@ -37,22 +43,31 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
-      - name: Create the GitHub release
-        env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
-        run: |
-          gh release create "$TAG" \
-            --title "$TAG" \
-            --generate-notes \
-            --verify-tag
+      # allow-initial-development-versions is what keeps this on 0.x. Without it
+      # go-semantic-release forces a major bump on *any* change while the major
+      # is 0, so the next `fix:` would ship 1.0.0 — which is how bbkt, sess and
+      # bashselfupdate all arrived at 1.0.0 on their first automated release.
+      # For a library 1.0 is a compatibility promise to every consumer, so it
+      # stays a deliberate act: drop this input when the API is settled.
+      #
+      # No changelog-file: CHANGELOG.md is hand-written API prose explaining why
+      # a change matters to a consumer, which generated commit subjects cannot.
+      # New entries go under `## [Unreleased]`.
+      - uses: go-semantic-release/action@v1
+        id: semrel
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          allow-initial-development-versions: true
 
       # pkg.go.dev only indexes a version once the proxy has fetched it.
       - name: Prime the module proxy
+        if: steps.semrel.outputs.version != ''
         env:
-          TAG: ${{ github.ref_name }}
+          VERSION: ${{ steps.semrel.outputs.version }}
         run: |
           module="$(go list -m)"
-          curl -fsS "https://proxy.golang.org/${module}/@v/${TAG}.info" || \
-            echo "proxy has not picked up ${TAG} yet; it will on first fetch"
+          curl -fsS "https://proxy.golang.org/${module}/@v/v${VERSION}.info" || \
+            echo "proxy has not picked up v${VERSION} yet; it will on first fetch"

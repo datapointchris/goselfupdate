@@ -93,13 +93,25 @@ supported platform, and runs the suite on a Windows runner.
 
 ## Releasing
 
-Tag `vX.Y.Z` on main; the release workflow validates on three operating systems
-before publishing. A tag cannot be retracted once the module proxy caches it,
-only superseded — so a broken tag is permanent. Update `CHANGELOG.md` in the
-same commit.
+Push to main. The workflow validates on three operating systems and then tags,
+so the conventional-commit type is what picks the version. A tag cannot be
+retracted once the module proxy caches it, only superseded — which is why the
+checks run before the tag exists rather than after it, as they did while
+releases were cut by hand.
 
-After tagging, bump the consumers: `go get -u github.com/datapointchris/goselfupdate`
-in `todoui`, `toolbox` and `forge`. All three are on v0.1.0 and released with
-it (todoui v1.6.2, toolbox v1.7.1, forge v1.13.2).
+`allow-initial-development-versions` holds this on 0.x. Without it any change
+bumps the major while the major is 0, so the next `fix:` would ship 1.0.0. Drop
+that input when the API is settled enough to promise compatibility.
+
+`CHANGELOG.md` is hand-written and not generated: it says why a change matters
+to a consumer, which a commit subject does not. Add entries under
+`## [Unreleased]` in the same commit as the change.
+
+Then bump the consumers, which are whatever declares the module rather than a
+list that goes stale here:
+
+```bash
+rg -l datapointchris/goselfupdate ~/tools/*/go.mod ~/webapps/*/cli/go.mod
+```
 
 [GO-2026-5932]: https://pkg.go.dev/vuln/GO-2026-5932
