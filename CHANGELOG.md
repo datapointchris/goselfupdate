@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `cobracmd.ErrUsage` — marks a failure caused by how the command was typed, so
+  `main` can select exit code 2 rather than flattening every failure to 1. Cobra
+  returns an unknown flag and an unknown subcommand as ordinary errors, which
+  leaves a caller unable to tell "you typed it wrong" from "it ran and failed" —
+  the distinction that decides whether retrying with different arguments is
+  worth it. Argument-count and custom `Args` validation stay unclassified:
+  cobra returns those indistinguishably from a `RunE` failure without matching
+  on message text.
+
 ## [0.5.0] - 2026-08-04
 
 ### Removed

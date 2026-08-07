@@ -186,10 +186,20 @@ func main() {
     }}
 
     if err := cobracmd.Execute(context.Background(), rootCmd, config); err != nil {
+        if errors.Is(err, cobracmd.ErrUsage) {
+            os.Exit(2)
+        }
         os.Exit(1)
     }
 }
 ```
+
+`ErrUsage` marks a failure caused by how the command was typed — an unknown or
+malformed flag, or an unknown subcommand — rather than by the command running
+and failing. Cobra returns both as ordinary errors, so without this every
+failure flattens to exit 1 and a caller cannot tell "you typed it wrong" from
+"it ran and failed". Only the former is worth retrying with different
+arguments. Exit 2 is the shell convention, and what Python's argparse uses.
 
 Once per 24 hours, if a newer release exists, one line goes to stderr **after**
 your command's own output:
