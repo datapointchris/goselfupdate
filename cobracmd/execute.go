@@ -3,7 +3,6 @@ package cobracmd
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/spf13/cobra"
 
@@ -24,6 +23,20 @@ import (
 // RunE failure without matching on message text, which callers must never
 // have to do.
 var ErrUsage = errors.New("usage error")
+
+// usageError marks err as [ErrUsage] while leaving its message alone.
+//
+// Prefixing would put a second label in front of a message that already reads
+// as a typing mistake -- a caller printing "error:" would emit "error: usage
+// error: unknown flag: --nope". The classification is what the exit code is
+// for, so it travels in the error graph rather than in the prose.
+type usageError struct{ err error }
+
+func (u usageError) Error() string { return u.err.Error() }
+
+// Unwrap returns both branches so [errors.Is] finds ErrUsage and [errors.As]
+// still finds whatever type the caller's own FlagErrorFunc returned.
+func (u usageError) Unwrap() []error { return []error{ErrUsage, u.err} }
 
 // neverAutoUpdate names commands that must never trigger an update check.
 //
@@ -90,7 +103,7 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config)
 	// either way and never silently drops a consumer's own handler.
 	previous := root.FlagErrorFunc()
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
-		return fmt.Errorf("%w: %w", ErrUsage, previous(cmd, err))
+		return usageError{previous(cmd, err)}
 	})
 
 	session := autoupdate.Start(ctx, config)
@@ -100,7 +113,7 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config)
 	// findErr is cobra's own verdict that the command line names nothing it can
 	// run, so any error from a line it already rejected is a usage error.
 	if err != nil && findErr != nil {
-		return fmt.Errorf("%w: %w", ErrUsage, err)
+		return usageError{err}
 	}
 	return err
 }

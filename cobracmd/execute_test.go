@@ -155,6 +155,38 @@ func TestUnknownFlagIsAUsageError(t *testing.T) {
 	}
 }
 
+// Classifying an error must not rewrite it. A caller printing "error:" in front
+// of a prefixed message says the same thing twice, and every consumer of this
+// package prints the error it gets back.
+func TestClassifyingAUsageErrorLeavesTheMessageAlone(t *testing.T) {
+	withArgs(t, "list", "--nope")
+
+	err := execute(t, usageRoot())
+	if err == nil {
+		t.Fatal("an unknown flag returned no error")
+	}
+	if got, want := err.Error(), "unknown flag: --nope"; got != want {
+		t.Errorf("message was rewritten: got %q, want %q", got, want)
+	}
+}
+
+// A caller's own error type survives classification, so a consumer that already
+// marks its own usage mistakes keeps matching on them.
+func TestACallersErrorTypeSurvivesClassification(t *testing.T) {
+	withArgs(t, "list", "--nope")
+
+	type callerUsage struct{ error }
+
+	root := usageRoot()
+	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error { return callerUsage{err} })
+
+	err := execute(t, root)
+	var theirs callerUsage
+	if !errors.As(err, &theirs) {
+		t.Errorf("the caller's error type was lost: %v", err)
+	}
+}
+
 // The distinction the exit code exists for: this one ran, so retrying with
 // different arguments is not the fix.
 func TestARunTimeFailureIsNotAUsageError(t *testing.T) {

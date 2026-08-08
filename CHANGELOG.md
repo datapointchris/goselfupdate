@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- Classifying a usage error no longer rewrites its message. `ErrUsage` travels
+  in the error graph rather than as a `"usage error: "` prefix, because every
+  consumer prints the error it gets back and most prefix it with `error:` —
+  which made an unknown flag read as `error: usage error: unknown flag: --x`,
+  two labels for one fact. `errors.Is(err, cobracmd.ErrUsage)` is unchanged,
+  and a `FlagErrorFunc` set by the caller now keeps its own error *type*
+  matchable with `errors.As` as well as its message.
+
+## [0.6.0] - 2026-08-07
+
 ### Added
 
 - `cobracmd.ErrUsage` — marks a failure caused by how the command was typed, so
@@ -151,7 +163,9 @@ Initial release.
   and carries [GO-2026-5932](https://pkg.go.dev/vuln/GO-2026-5932), which has
   no fixed version, so depending on it makes `govulncheck` permanently fail.
 
-[Unreleased]: https://github.com/datapointchris/goselfupdate/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/datapointchris/goselfupdate/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/datapointchris/goselfupdate/compare/v0.5.0...v0.6.0
+[0.5.0]: https://github.com/datapointchris/goselfupdate/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/datapointchris/goselfupdate/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/datapointchris/goselfupdate/compare/v0.2.2...v0.3.0
 [0.2.2]: https://github.com/datapointchris/goselfupdate/compare/v0.2.1...v0.2.2
