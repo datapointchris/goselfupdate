@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- `cobracmd.UsageError` — marks an error this package cannot classify on its
+  own as `ErrUsage`, for an argument-count or custom `Args` failure and for a
+  required-flag rule a command validates itself. `ErrUsage` was detectable but
+  not producible, so a consumer wanting to mark its own mistakes had to declare
+  a private marker type; four CLIs here had four copies of it.
+
 ### Changed
 
 - Classifying a usage error no longer rewrites its message. `ErrUsage` travels

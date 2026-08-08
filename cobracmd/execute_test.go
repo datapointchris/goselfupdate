@@ -187,6 +187,27 @@ func TestACallersErrorTypeSurvivesClassification(t *testing.T) {
 	}
 }
 
+// The mistakes Execute cannot classify on its own reach the same exit code
+// through UsageError, without it rewriting their message either.
+func TestUsageErrorMarksACallersOwnMistake(t *testing.T) {
+	err := UsageError(errors.New("unknown command \"nope\""))
+
+	if !errors.Is(err, ErrUsage) {
+		t.Errorf("error is not ErrUsage: %v", err)
+	}
+	if got, want := err.Error(), "unknown command \"nope\""; got != want {
+		t.Errorf("message was rewritten: got %q, want %q", got, want)
+	}
+}
+
+// Marking a nil error would turn "it succeeded" into a usage failure at every
+// call site that forwards a validator's result unconditionally.
+func TestUsageErrorPassesNilThrough(t *testing.T) {
+	if err := UsageError(nil); err != nil {
+		t.Errorf("nil became %v", err)
+	}
+}
+
 // The distinction the exit code exists for: this one ran, so retrying with
 // different arguments is not the fix.
 func TestARunTimeFailureIsNotAUsageError(t *testing.T) {

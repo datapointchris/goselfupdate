@@ -38,6 +38,30 @@ func (u usageError) Error() string { return u.err.Error() }
 // still finds whatever type the caller's own FlagErrorFunc returned.
 func (u usageError) Unwrap() []error { return []error{ErrUsage, u.err} }
 
+// UsageError marks err as [ErrUsage] so [Execute]'s caller selects exit code 2
+// for it, leaving the message alone.
+//
+// For the mistakes this package cannot detect on its own: an argument-count or
+// custom [cobra.Command.Args] failure, which cobra returns indistinguishably
+// from a RunE failure, and a required-flag or mutually-exclusive-flag rule a
+// command validates itself.
+//
+//	Args: func(cmd *cobra.Command, args []string) error {
+//		if len(args) > 1 {
+//			return cobracmd.UsageError(fmt.Errorf("unknown command %q", args[0]))
+//		}
+//		return nil
+//	},
+//
+// Without this a consumer has to declare its own marker type to say the same
+// thing, which is how four CLIs here ended up with four copies of it.
+func UsageError(err error) error {
+	if err == nil {
+		return nil
+	}
+	return usageError{err}
+}
+
 // neverAutoUpdate names commands that must never trigger an update check.
 //
 // The critical entry is cobra's shell-completion callback: it runs on **every
