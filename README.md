@@ -1,7 +1,8 @@
 # goselfupdate
 
 [![Go Reference](https://pkg.go.dev/badge/github.com/datapointchris/goselfupdate.svg)](https://pkg.go.dev/github.com/datapointchris/goselfupdate)
-[![CI](https://github.com/datapointchris/goselfupdate/actions/workflows/ci.yml/badge.svg)](https://github.com/datapointchris/goselfupdate/actions/workflows/ci.yml)
+[![CI](https://github.com/datapointchris/goselfupdate/actions/workflows/validate.yml/badge.svg)](https://github.com/datapointchris/goselfupdate/actions/workflows/validate.yml)
+[![Bespoke CI](https://github.com/datapointchris/goselfupdate/actions/workflows/ci.yml/badge.svg)](https://github.com/datapointchris/goselfupdate/actions/workflows/ci.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/datapointchris/goselfupdate)](https://goreportcard.com/report/github.com/datapointchris/goselfupdate)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
