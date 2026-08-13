@@ -115,3 +115,24 @@ rg -l datapointchris/goselfupdate ~/tools/*/go.mod ~/webapps/*/cli/go.mod
 ```
 
 [GO-2026-5932]: https://pkg.go.dev/vuln/GO-2026-5932
+
+## Never write the breaking-change trailer in a commit message
+
+The words `BREAKING CHANGE` — either number, colon or not, subject or body — cut a major release
+here, and a major on this repo is an outage rather than a version. `commit-analyzer-cz` matches
+them unanchored against the raw message and ORs the result with the configured major rules, so
+`.semrelrc` cannot stop it and it majors even a `fix:` commit.
+
+The module path carries no `/vN` suffix, so once a major exists `go install …@latest` cannot see it
+and silently resolves the highest v1 instead — `dotfiles check` reports the tool stale forever
+while `apply` exits 0 having installed nothing. Every already-installed binary is stranded too:
+`goselfupdate` refuses a lower version and reports "already up to date". Recovery is a reinstall on
+each machine, and it is not a rewrite — branch protection refuses one on `main`, and the offending
+commit re-cuts the major on every push until a tag above it takes it out of range.
+
+**The ban covers a commit that merely discusses the trailer.** One explaining this exact caveat cut
+a fresh major on push. Name it some other way — "that marker" — and never quote it.
+
+Deliberate majors use `chore(release-major)`, the one subject `.semrelrc` leaves as a major. Full
+reasoning and the reset procedure: `standards/release.md` § "Never write the breaking-change
+trailer in a Go repo's commit message".
