@@ -130,8 +130,8 @@ Everything beyond the four required fields has a working default.
 
 | Field | Default | Purpose |
 | --- | --- | --- |
-| `Token` | `$GITHUB_TOKEN`, then `$GH_TOKEN`, then `TokenFunc` | Raises GitHub's 60 requests/hour limit; required for private repositories, for both the release lookup and the asset download |
-| `TokenFunc` | none | Resolves a token only when a request is about to be made — for a credential that costs a keychain prompt or a `gh auth token` subprocess |
+| `Token` | see Authentication below | A credential you already hold in code; you almost certainly want the default |
+| `TokenFunc` | none | A source of your own, tried after the environment and before the command |
 | `HTTPClient` | 60-second timeout | Proxies, retries, custom timeouts |
 | `Source` | GitHub | Another forge, or a private mirror |
 | `Verifier` | `ChecksumVerifier` | Signature verification, or `NoVerification` |
@@ -139,6 +139,41 @@ Everything beyond the four required fields has a working default.
 | `TagPrefix` | `""` | Select one release stream in a repository publishing several |
 
 GitHub Enterprise works by setting `GitHubSource.APIBase` to its `/api/v3` root.
+
+## Authentication
+
+**Authenticated by default. Configure nothing.** `GitHubSource` runs `gh auth
+token` when a request is about to be made, and sends what it prints.
+
+The alternative is not "no credential". It is 60 requests an hour, charged **per
+IP address** and shared with every other anonymous caller behind the same
+egress. A default that has to be opted into is a default nobody sets.
+
+Four sources, first non-empty wins:
+
+| Source | Set by | Default |
+| --- | --- | --- |
+| `Config.Token` | you, in code | unset |
+| `$GITHUB_TOKEN`, then `$GH_TOKEN` | whoever runs your CLI | unset |
+| `TokenFunc()` | you, in code | unset |
+| `$GITHUB_TOKEN_COMMAND` | whoever runs your CLI | `gh auth token` |
+
+`$GITHUB_TOKEN_COMMAND` both redirects and disables, which is what a switch has
+to do to be worth having:
+
+```bash
+GITHUB_TOKEN_COMMAND='pass show github/token'   # use this instead
+GITHUB_TOKEN_COMMAND=''                         # run nothing, stay anonymous
+```
+
+Single and double quotes are honored; no shell runs the result, so pipelines
+and expansion are not available. It never fails — a command that is not
+installed, exits non-zero, or takes longer than ten seconds degrades to an
+unauthenticated request, which still works against a public repository.
+
+**This lives on `GitHubSource`, not on `Config`.** A credential is the host's
+business — a `Source` for another forge brings its own variable and its own
+command, and nothing above the `Source` interface learns either name.
 
 ## Errors
 

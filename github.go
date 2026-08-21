@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
+	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 // DefaultGitHubAPI is the API root used when GitHubSource.APIBase is empty.
@@ -26,9 +28,31 @@ type GitHubSource struct {
 	Owner string
 	Repo  string
 
-	// Token authenticates requests. Without one GitHub permits 60 requests per
-	// hour per IP address and denies private repositories.
+	// Token authenticates requests. Leave it empty and the source resolves one
+	// itself: $GITHUB_TOKEN, then $GH_TOKEN, then TokenFunc, then
+	// $GITHUB_TOKEN_COMMAND — which defaults to `gh auth token`.
+	//
+	// Without any credential GitHub permits 60 requests per hour per IP address,
+	// shared with every other anonymous caller behind the same egress, and
+	// denies private repositories.
 	Token string
+
+	// TokenFunc is a source of the caller's own, tried after the environment and
+	// before the command. Returning "" falls through.
+	//
+	// Reaching for gh no longer needs one — that is the default. This is for a
+	// credential neither the environment nor a command can produce.
+	//
+	// Called only when a request is about to be made, because a credential can
+	// be expensive to obtain and [autoupdate]'s gate declines most invocations
+	// without touching the network.
+	TokenFunc func() string
+
+	// resolved caches the credential for this source's lifetime. A check that
+	// also fetches a changelog makes several requests, and the command behind
+	// this can be a vault unlock.
+	resolveOnce sync.Once
+	resolved    string
 
 	// HTTPClient performs requests. Defaults to http.DefaultClient.
 	HTTPClient *http.Client
@@ -223,6 +247,34 @@ func (s *GitHubSource) get(ctx context.Context, url string) ([]byte, error) {
 	return s.fetch(ctx, url, "application/vnd.github+json")
 }
 
+// credential resolves the token once, on first use.
+//
+// Four sources, first non-empty wins. It lives here rather than on Config
+// because a credential is the host's business: a Source for another forge
+// brings its own variable and its own command, and nothing above the Source
+// interface learns either name.
+func (s *GitHubSource) credential() string {
+	s.resolveOnce.Do(func() {
+		for _, candidate := range []func() string{
+			func() string { return s.Token },
+			tokenFromEnv,
+			func() string {
+				if s.TokenFunc == nil {
+					return ""
+				}
+				return s.TokenFunc()
+			},
+			tokenFromCommand,
+		} {
+			if value := candidate(); value != "" {
+				s.resolved = value
+				return
+			}
+		}
+	})
+	return s.resolved
+}
+
 // fetch performs an authenticated GET. accept distinguishes an API read from an
 // asset download; the redirect to the CDN that a download ends in drops the
 // Authorization header on its own, since net/http does not carry credentials
@@ -234,8 +286,9 @@ func (s *GitHubSource) fetch(ctx context.Context, url, accept string) ([]byte, e
 	}
 	req.Header.Set("Accept", accept)
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
-	if s.Token != "" {
-		req.Header.Set("Authorization", "Bearer "+s.Token)
+	token := s.credential()
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 
 	client := s.HTTPClient
@@ -250,7 +303,7 @@ func (s *GitHubSource) fetch(ctx context.Context, url, accept string) ([]byte, e
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, statusError(resp, url)
+		return nil, statusError(resp, url, token != "")
 	}
 
 	return io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
@@ -259,11 +312,10 @@ func (s *GitHubSource) fetch(ctx context.Context, url, accept string) ([]byte, e
 // statusError turns a failed response into a message that names the likely
 // cause. A bare "403 Forbidden" from GitHub is almost always rate limiting,
 // which is fixed by a token rather than by retrying.
-func statusError(resp *http.Response, url string) error {
+func statusError(resp *http.Response, url string, authenticated bool) error {
 	switch {
 	case resp.StatusCode == http.StatusForbidden && resp.Header.Get("X-RateLimit-Remaining") == "0":
-		return fmt.Errorf("github rate limit exceeded (resets at %s); set a token to raise the limit",
-			resp.Header.Get("X-RateLimit-Reset"))
+		return rateLimitError(resp, authenticated)
 	case resp.StatusCode == http.StatusUnauthorized:
 		return fmt.Errorf("github rejected the token for %s", url)
 	case resp.StatusCode == http.StatusNotFound:
@@ -273,11 +325,35 @@ func statusError(resp *http.Response, url string) error {
 	}
 }
 
-func tokenFromEnv() string {
-	for _, name := range []string{"GITHUB_TOKEN", "GH_TOKEN"} {
-		if value := os.Getenv(name); value != "" {
-			return value
-		}
+// rateLimitError names which ceiling was hit, because the two are different
+// problems with different fixes.
+//
+// One sentence for both misadvised whichever case it was not written for, and
+// telling someone to set a token when the request already carried one is the
+// worse half: it reads as advice to configure something already configured. The
+// authenticated case should be rare, so it says when the ceiling lifts rather
+// than what to change — there is nothing to change.
+func rateLimitError(resp *http.Response, authenticated bool) error {
+	resets := resetClock(resp.Header.Get("X-RateLimit-Reset"))
+	if authenticated {
+		return fmt.Errorf("github's authenticated rate limit (5,000/hour) is exhausted%s", resets)
 	}
-	return ""
+	return fmt.Errorf(
+		"github's anonymous rate limit (60/hour, shared by every host on this IP) is exhausted%s; "+
+			"run `gh auth login`, or set GITHUB_TOKEN, for the 5,000/hour authenticated limit", resets)
+}
+
+// resetClock renders the reset header as a wall-clock time, or nothing when it
+// is absent or unusable.
+//
+// A time rather than a duration, because the message is read out of a state
+// file long after the request that produced it and a duration would be counted
+// from the wrong instant. The raw header is an epoch integer, which is what the
+// message used to print.
+func resetClock(header string) string {
+	seconds, err := strconv.ParseInt(header, 10, 64)
+	if err != nil {
+		return ""
+	}
+	return "; resets at " + time.Unix(seconds, 0).UTC().Format("15:04") + " UTC"
 }

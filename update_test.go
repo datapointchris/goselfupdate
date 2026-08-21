@@ -258,20 +258,78 @@ func TestTokenFuncIsOnlyConsultedWhenNothingElseSuppliesTheToken(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if resolved.Token != testCase.want {
-				t.Errorf("Token = %q, want %q", resolved.Token, testCase.want)
-			}
-			if calls != testCase.wantCalls {
-				t.Errorf("TokenFunc called %d times, want %d", calls, testCase.wantCalls)
-			}
 			source, ok := resolved.Source.(*GitHubSource)
 			if !ok {
 				t.Fatalf("Source is %T, want *GitHubSource", resolved.Source)
 			}
-			if source.Token != testCase.want {
-				t.Errorf("source token = %q, want it carried from the config", source.Token)
+			// resolve() no longer fills Config.Token. The credential is the
+			// host's business, so the source resolves it and Config only hands
+			// down what the caller set.
+			if resolved.Token != testCase.token {
+				t.Errorf("Config.Token = %q, want it left as passed (%q)", resolved.Token, testCase.token)
+			}
+			if calls != 0 {
+				t.Errorf("TokenFunc called %d times during resolve, want 0", calls)
+			}
+
+			t.Setenv(TokenCommandEnv, "")
+			if got := source.credential(); got != testCase.want {
+				t.Errorf("credential() = %q, want %q", got, testCase.want)
+			}
+			if calls != testCase.wantCalls {
+				t.Errorf("TokenFunc called %d times, want %d", calls, testCase.wantCalls)
 			}
 		})
+	}
+}
+
+// One lever that both redirects and disables, which is what a switch has to do
+// to be worth having.
+func TestTheTokenCommandRedirectsAndDisables(t *testing.T) {
+	cases := []struct {
+		name    string
+		command string
+		want    string
+	}{
+		{name: "redirected", command: "printf redirected", want: "redirected"},
+		{name: "disabled", command: "", want: ""},
+		{name: "command exits non-zero", command: "false", want: ""},
+		{name: "command not installed", command: "no-such-binary-anywhere", want: ""},
+		{name: "quoted argument", command: `printf "one two"`, want: "one two"},
+	}
+
+	for _, testCase := range cases {
+		t.Run(testCase.name, func(t *testing.T) {
+			t.Setenv("GITHUB_TOKEN", "")
+			t.Setenv("GH_TOKEN", "")
+			t.Setenv(TokenCommandEnv, testCase.command)
+
+			source := &GitHubSource{Owner: "o", Repo: "r"}
+			if got := source.credential(); got != testCase.want {
+				t.Errorf("credential() = %q, want %q", got, testCase.want)
+			}
+		})
+	}
+}
+
+// A check that also fetches a changelog makes several requests, and the command
+// behind this can be a vault unlock with a touch prompt.
+func TestTheCredentialResolvesOncePerSource(t *testing.T) {
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv(TokenCommandEnv, "")
+
+	calls := 0
+	source := &GitHubSource{Owner: "o", Repo: "r", TokenFunc: func() string {
+		calls++
+		return "from-func"
+	}}
+
+	source.credential()
+	source.credential()
+
+	if calls != 1 {
+		t.Errorf("TokenFunc called %d times, want 1", calls)
 	}
 }
 

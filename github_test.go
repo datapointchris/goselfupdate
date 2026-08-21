@@ -106,12 +106,53 @@ func TestGitHubSourceExplainsRateLimiting(t *testing.T) {
 		w.WriteHeader(http.StatusForbidden)
 	})
 
+	t.Setenv(TokenCommandEnv, "")
+
 	_, err := source.LatestRelease(context.Background())
-	if err == nil || !strings.Contains(err.Error(), "rate limit") {
-		t.Fatalf("got %v, want a rate limit explanation", err)
+	if err == nil || !strings.Contains(err.Error(), "anonymous rate limit") {
+		t.Fatalf("got %v, want the anonymous ceiling named", err)
 	}
-	if !strings.Contains(err.Error(), "token") {
-		t.Errorf("error does not suggest a token: %v", err)
+	if !strings.Contains(err.Error(), "gh auth login") {
+		t.Errorf("error does not say how to authenticate: %v", err)
+	}
+	if !strings.Contains(err.Error(), "resets at") {
+		t.Errorf("error does not say when the ceiling lifts: %v", err)
+	}
+}
+
+// The two ceilings are different problems with different fixes. Telling someone
+// to supply a token when the request already carried one reads as advice to
+// configure something that is already configured.
+func TestAnAuthenticatedRateLimitDoesNotAdviseSupplyingAToken(t *testing.T) {
+	source := newGitHubServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("X-RateLimit-Remaining", "0")
+		w.Header().Set("X-RateLimit-Reset", "1700000000")
+		w.WriteHeader(http.StatusForbidden)
+	})
+	source.Token = "secret"
+
+	_, err := source.LatestRelease(context.Background())
+	if err == nil || !strings.Contains(err.Error(), "authenticated rate limit") {
+		t.Fatalf("got %v, want the authenticated ceiling named", err)
+	}
+	if strings.Contains(err.Error(), "GITHUB_TOKEN") {
+		t.Errorf("error advises setting a token the request already carried: %v", err)
+	}
+}
+
+// The reset header is an epoch integer. A wall-clock time rather than a
+// duration, because the message is read out of a state file long after the
+// request that produced it.
+func TestTheResetClockIsOmittedWhenTheHeaderIsUnusable(t *testing.T) {
+	source := newGitHubServer(t, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("X-RateLimit-Remaining", "0")
+		w.WriteHeader(http.StatusForbidden)
+	})
+	t.Setenv(TokenCommandEnv, "")
+
+	_, err := source.LatestRelease(context.Background())
+	if err == nil || strings.Contains(err.Error(), "resets at") {
+		t.Fatalf("got %v, want no reset clause when the header is absent", err)
 	}
 }
 

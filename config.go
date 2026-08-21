@@ -96,17 +96,17 @@ func (c Config) resolve() (Config, error) {
 	if c.HTTPClient == nil {
 		c.HTTPClient = &http.Client{Timeout: DefaultTimeout}
 	}
-	if c.Token == "" {
-		c.Token = tokenFromEnv()
-	}
-	if c.Token == "" && c.TokenFunc != nil {
-		c.Token = c.TokenFunc()
-	}
+	// Token and TokenFunc are handed down rather than resolved here. The
+	// credential is the host's business, and a Source for another forge reads a
+	// different variable and runs a different command — neither of which this
+	// layer should know. Resolving here also made it eager, which is what
+	// TokenFunc exists to avoid.
 	if c.Source == nil {
 		c.Source = &GitHubSource{
 			Owner:           c.Owner,
 			Repo:            c.Repo,
 			Token:           c.Token,
+			TokenFunc:       c.TokenFunc,
 			HTTPClient:      c.HTTPClient,
 			AllowPrerelease: c.AllowPrerelease,
 			TagPrefix:       c.TagPrefix,
