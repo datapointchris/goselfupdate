@@ -78,6 +78,34 @@ var neverAutoUpdate = map[string]bool{
 	cobra.ShellCompNoDescRequestCmd: true,
 }
 
+// helpRequested reports whether the command line asks for help rather than for
+// work.
+//
+// The `help` command is on the list above, but `--help` is a flag, so it
+// resolves to an ordinary target and passes straight through. Cobra answers it
+// by printing and returning, so nothing an update notice is for ever happens —
+// and a reader walking a tool's help screens, which is what helpnav does, would
+// fire one version check per screen.
+//
+// Measured 2026-08-22: eighteen tools here write ~/.local/state/<tool>/
+// autoupdate.json and call the releases API on `<tool> --help`. The interval
+// gate is the only reason it is not every invocation.
+//
+// Scanning is deliberately literal. A `--` ends the search because everything
+// after it is the command's own argument, and a suppression that fires when it
+// should not costs a missed notice, which is the cheap direction to be wrong in.
+func helpRequested(args []string) bool {
+	for _, arg := range args {
+		if arg == "--" {
+			return false
+		}
+		if arg == "--help" || arg == "-h" {
+			return true
+		}
+	}
+	return false
+}
+
 // suppressed reports whether a command, or anything it is nested under, is on
 // the list.
 //
@@ -120,7 +148,8 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config)
 	// An unresolvable command line is about to produce a usage error, which is
 	// not the moment for an update notice.
 	target, findErr := resolveTarget(root)
-	config.Suppress = config.Suppress || findErr != nil || target == nil || suppressed(target)
+	config.Suppress = config.Suppress || findErr != nil || target == nil ||
+		suppressed(target) || helpRequested(commandLineArgs())
 
 	// Composed with whatever the caller already set rather than replacing it:
 	// cobra hands back a working default when nothing is set, so this is safe

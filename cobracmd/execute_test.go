@@ -250,3 +250,35 @@ func TestACallersFlagErrorFuncIsPreserved(t *testing.T) {
 		t.Errorf("error is not ErrUsage: %v", err)
 	}
 }
+
+// `help` is a command and is on the list; `--help` is a flag, so it resolves to
+// an ordinary target and used to pass straight through. Cobra answers it by
+// printing, so nothing a notice is for ever happens — and a reader walking a
+// tool's help screens would fire one version check per screen.
+func TestTheHelpFlagIsSuppressed(t *testing.T) {
+	for _, args := range [][]string{
+		{"--help"},
+		{"-h"},
+		{"list", "--help"},
+		{"list", "-h"},
+	} {
+		if !helpRequested(args) {
+			t.Errorf("%v was not read as a request for help", args)
+		}
+	}
+}
+
+// Everything after `--` belongs to the command, so a literal --help there is an
+// argument the command was given rather than a request to print help.
+func TestHelpAfterADoubleDashIsAnArgument(t *testing.T) {
+	for _, args := range [][]string{
+		{"run", "--", "--help"},
+		{"list"},
+		{},
+		{"--json"},
+	} {
+		if helpRequested(args) {
+			t.Errorf("%v was read as a request for help", args)
+		}
+	}
+}
