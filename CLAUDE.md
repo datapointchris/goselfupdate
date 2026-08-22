@@ -3,9 +3,10 @@
 A public Go library, not a CLI. There is no `main` package and nothing to
 install; it ships as git tags and is consumed by the Go tools in `~/tools/`.
 
-Unlike the other repos here, this one is written to be used by strangers. Treat
-the exported API, the README and the godoc as the product — a change that is
-merely convenient for the three internal consumers is not automatically right.
+This one is written to be used by strangers. Treat the exported API, the README
+and the godoc as the product — a change that is merely convenient for the internal
+consumers is not automatically right. `go list -m all` names them; there are more
+than the handful this line used to claim.
 
 ## Layout
 
@@ -37,39 +38,33 @@ merely convenient for the three internal consumers is not automatically right.
   reader or the disk.
 - **Assets are discovered from the release API, never rebuilt from a name
   template**, and an ambiguous match is an error rather than a guess.
-- **Errors are sentinels.** A new failure mode gets an `Err*` in `errors.go`;
-  callers must never have to match on message text.
-- **`autoupdate` never prints an error and never fails a command.** The explicit
-  `update` command prints errors; a failed check goes to the state file and is
-  swallowed. This is what stops a dev build printing an update failure on every
-  invocation, and it is a design rule rather than scattered guards.
-- **The last-checked timestamp is written before the network call.** `gh` stamps
-  only on success, so a rate-limited or offline user re-hits the API on every
-  invocation until the window resets. There is a test named for it, and it
-  caught a real bug: the first implementation stamped a *copy*, and the write
-  after the check clobbered the timestamp back to zero.
-- **The `autoupdate.json` schema is shared with pyselfupdate and
-  bashselfupdate.** Adding a field is safe; renaming or repurposing one breaks
-  the other two and any dashboard reading them.
+- **Errors are sentinels** — an `Err*` in `errors.go` per failure mode. The rule
+  is `standards/code-quality.md` § "A failure mode gets a name callers can branch
+  on, never a message they have to match", which names this file as its source.
+- The gate order, the silent notify path, the pre-flight timestamp stamp and the
+  shared `autoupdate.json` schema are `standards/release.md` § Self-update. Not
+  restated here, as in bashselfupdate and pyselfupdate.
+- **The stamp rule caught a real bug here**, which is the part the standard does
+  not carry: the first implementation stamped a *copy*, and the write after the
+  check clobbered the timestamp back to zero. The test is named for it.
 
 ## Why IsReleaseVersion exists separately from IsValidVersion
 
-A Go build pseudo-version — `v1.6.1-0.20260724161156-2c04703+dirty` — is
-**valid semver**. `0.20260724161156-2c04703` is a legal pre-release identifier,
-so it parses cleanly and sorts below `v1.6.1` exactly as the specification says.
-A caller asking "is this a real release" therefore cannot use `IsValidVersion`,
-and every consumer had independently reimplemented the same `^v\d+\.\d+\.\d+$`
-regex to get the right answer. It belongs here.
+Why a dev build cannot be detected from a version string is `standards/release.md`
+§ "Never detect a dev build from a version string" — both example strings and the
+maxim are there.
 
-The siblings hit the identical trap from the other direction: `git describe`
-output (`v1.2.3-4-gabc1234`) is also valid semver, and pyselfupdate reads uv's
-install receipt rather than any version string. The general rule the three
-share: **ask whatever recorded the fact, never infer it from a version.**
+What is this repo's own: a caller asking "is this a real release" therefore cannot
+use `IsValidVersion`, and every consumer had independently reimplemented the same
+`^v\d+\.\d+\.\d+$` regex to get the right answer. Exporting both predicates is what
+stopped that, and it is why two functions that look redundant are not.
 
 ## Testing
 
-Everything runs offline. `stubSource` serves fixed releases; `github_test.go`
-drives the real HTTP path against `httptest`.
+The two-layer shape — `stubSource` for the logic, `github_test.go` against
+`httptest` for the wire — is `standards/testing.md` § "A network client tests
+offline against a stub, plus one test against a local server", which cites this
+file. Everything runs offline.
 
 `Update` resolves the *running* executable, which under test is the test
 binary, so tests call `UpdateTo` with an explicit path and the cobra command is
@@ -99,9 +94,10 @@ retracted once the module proxy caches it, only superseded — which is why the
 checks run before the tag exists rather than after it, as they did while
 releases were cut by hand.
 
-`allow-initial-development-versions` holds this on 0.x. Without it any change
-bumps the major while the major is 0, so the next `fix:` would ship 1.0.0. Drop
-that input when the API is settled enough to promise compatibility.
+`allow-initial-development-versions` holds this on 0.x — why, and which three repos
+shipped 1.0.0 as their first automated release without it, is `standards/release.md`
+§ "On 0.x, go-semantic-release majors on *everything* unless told not to". Drop that
+input when the API is settled enough to promise compatibility.
 
 `CHANGELOG.md` is hand-written and not generated: it says why a change matters
 to a consumer, which a commit subject does not. Add entries under
