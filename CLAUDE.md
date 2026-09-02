@@ -19,16 +19,6 @@ than the handful this line used to claim.
 
 ## Constraints that must not regress
 
-- **The core package *and* `autoupdate/` have zero third-party dependencies.**
-  CI enforces both. This is the library's main differentiator against the
-  alternatives, and the reason `semver.go` exists rather than importing
-  `x/mod/semver`, which raises its minimum Go version over time and would push
-  that floor onto every caller. `autoupdate` hand-rolls terminal detection
-  (`os.Stat` + `ModeCharDevice`, not `x/term`) and duration parsing
-  (`time.ParseDuration` rejects `7d`) for the same reason.
-- **cobra stays confined to `cobracmd/`.** Module graph pruning is what keeps a
-  core-only consumer from downloading it, and that only holds while the core
-  imports nothing.
 - **`go.mod` declares the Go floor and CI tests against it**, reading the version
   from the file rather than repeating it. Raising the floor excludes callers and
   needs a reason beyond convenience.
@@ -51,6 +41,30 @@ than the handful this line used to claim.
 - **The stamp rule caught a real bug here**, which is the part the standard does
   not carry: the first implementation stamped a *copy*, and the write after the
   check clobbered the timestamp back to zero. The test is named for it.
+
+## Dependencies: one import is banned, not all of them
+
+`x/crypto/openpgp` is the ban, and it is above with the reason. Nothing else is
+forbidden. Weigh a third-party import here the way you would in any repo — what
+it costs to audit, what it does to the Go floor, whether the stdlib already
+answers it.
+
+The packages here happen to import nothing outside the standard library, and
+that is a consequence rather than a promise. Two pieces of hand-rolled code
+exist because the alternative was worse on its own merits, and both stay:
+
+- `semver.go` rather than `x/mod/semver`, which raises its minimum Go version
+  over time. That floor lands on every caller, and the code it replaces is a
+  comparison function pinned by `FuzzParseVersion` and by the full ordering
+  matrix from semver.org section 11.
+- `autoupdate`'s terminal detection (`os.Stat` plus `ModeCharDevice`, not
+  `x/term`) and its duration parsing, because `time.ParseDuration` rejects
+  `7d`. Both are a few lines against a package each.
+
+Neither is a reason to refuse an import that genuinely pays. A dependency that
+would carry real weight — a protocol client, a compression format, a parser —
+is a normal decision made on what it costs, and "this package has none" is not
+an argument against it.
 
 ## Why IsReleaseVersion exists separately from IsValidVersion
 

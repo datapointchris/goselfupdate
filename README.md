@@ -8,7 +8,8 @@
 
 Self-updating Go binaries, for CLIs released with [goreleaser] and GitHub.
 
-**No dependencies.** The core package imports only the standard library.
+The core package and `autoupdate` import only the standard library. `cobracmd`
+is the one that brings in [cobra].
 
 ```go
 result, err := goselfupdate.Update(ctx, goselfupdate.Config{
@@ -299,8 +300,8 @@ machines, by a file syncer or a network home directory, otherwise has two
 writers on one path and reports whichever wrote last as the state of all of
 them. `autoupdate.Machine` returns the name this process writes under.
 
-`autoupdate` links nothing outside the standard library, so adding a notice to
-a CLI adds no dependencies. Only `cobracmd` imports cobra.
+`autoupdate` links nothing outside the standard library, so a CLI using `flag`,
+`urfave/cli` or its own parser can take the notice without taking cobra.
 
 ## Scope
 
@@ -341,3 +342,5 @@ MIT
 [`Verifier`]: https://pkg.go.dev/github.com/datapointchris/goselfupdate#Verifier
 [`Source`]: https://pkg.go.dev/github.com/datapointchris/goselfupdate#Source
 [`CleanupOldBinary`]: https://pkg.go.dev/github.com/datapointchris/goselfupdate#CleanupOldBinary
+
+[cobra]: https://github.com/spf13/cobra
