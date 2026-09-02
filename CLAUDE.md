@@ -99,9 +99,9 @@ shipped 1.0.0 as their first automated release without it, is `standards/release
 § "On 0.x, go-semantic-release majors on *everything* unless told not to". Drop that
 input when the API is settled enough to promise compatibility.
 
-`CHANGELOG.md` is hand-written and not generated: it says why a change matters
-to a consumer, which a commit subject does not. Add entries under
-`## [Unreleased]` in the same commit as the change.
+The changelog is the GitHub release body, written by go-semantic-release from
+the commit subjects in the release. Nothing commits it back to the repo, so the
+commit message is where a change explains itself to a consumer.
 
 Then bump the consumers, which are whatever declares the module rather than a
 list that goes stale here:
