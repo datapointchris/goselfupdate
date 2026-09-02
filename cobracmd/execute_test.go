@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/spf13/cobra"
@@ -155,9 +156,11 @@ func TestUnknownFlagIsAUsageError(t *testing.T) {
 	}
 }
 
-// Classifying an error must not rewrite it. A caller printing "error:" in front
+// Classifying an error must not relabel it. A caller printing "error:" in front
 // of a prefixed message says the same thing twice, and every consumer of this
-// package prints the error it gets back.
+// package prints the error it gets back. What the classification is allowed to
+// add is the help this failure owes, which goes after the message rather than
+// in front of it.
 func TestClassifyingAUsageErrorLeavesTheMessageAlone(t *testing.T) {
 	withArgs(t, "list", "--nope")
 
@@ -165,8 +168,10 @@ func TestClassifyingAUsageErrorLeavesTheMessageAlone(t *testing.T) {
 	if err == nil {
 		t.Fatal("an unknown flag returned no error")
 	}
-	if got, want := err.Error(), "unknown flag: --nope"; got != want {
-		t.Errorf("message was rewritten: got %q, want %q", got, want)
+
+	first, _, _ := strings.Cut(err.Error(), "\n")
+	if want := "unknown flag: --nope"; first != want {
+		t.Errorf("message was rewritten: got %q, want %q", first, want)
 	}
 }
 

@@ -129,6 +129,10 @@ func suppressed(cmd *cobra.Command) bool {
 // command pays nothing and the line is not buried in the command's output. This
 // is gh's shape, and it is the reason there is no blocking mode.
 //
+// A command line cobra rejects comes back classified as [ErrUsage] and carrying
+// the near-matching flags and the command that lists the valid ones, which
+// cobra reports neither of.
+//
 //	func main() {
 //		if err := cobracmd.Execute(context.Background(), rootCmd, autoConfig()); err != nil {
 //			if !errors.Is(err, cobracmd.ErrReported) {
@@ -156,7 +160,7 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config)
 	// either way and never silently drops a consumer's own handler.
 	previous := root.FlagErrorFunc()
 	root.SetFlagErrorFunc(func(cmd *cobra.Command, err error) error {
-		return usageError{previous(cmd, err)}
+		return usageError{explainFlagError(cmd, previous(cmd, err))}
 	})
 
 	session := autoupdate.Start(ctx, config)
@@ -166,7 +170,7 @@ func Execute(ctx context.Context, root *cobra.Command, config autoupdate.Config)
 	// findErr is cobra's own verdict that the command line names nothing it can
 	// run, so any error from a line it already rejected is a usage error.
 	if err != nil && findErr != nil {
-		return usageError{err}
+		return usageError{explainCommandError(target, err)}
 	}
 	return err
 }

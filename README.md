@@ -237,6 +237,25 @@ failure flattens to exit 1 and a caller cannot tell "you typed it wrong" from
 "it ran and failed". Only the former is worth retrying with different
 arguments. Exit 2 is the shell convention, and what Python's argparse uses.
 
+`Execute` also fills in what cobra leaves out of a typing mistake. An unknown
+flag names the flags closest to what was typed, and both an unknown flag and an
+unknown command name the command that lists the valid ones:
+
+```text
+$ tool search --ownd
+error: unknown flag: --ownd
+
+Did you mean this?
+  --owned
+
+Run 'tool search --help' for usage.
+```
+
+Suggestions respect the `DisableSuggestions` and `SuggestionsMinimumDistance`
+already set on the command, so a mistyped flag and a mistyped command are
+answered by one rule. The pointer is added only where cobra does not print it
+itself, which is decided by `SilenceErrors`.
+
 Once per 24 hours, if a newer release exists, one line goes to stderr **after**
 your command's own output:
 
