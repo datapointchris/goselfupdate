@@ -3,10 +3,13 @@
 A public Go library, not a CLI. There is no `main` package and nothing to
 install; it ships as git tags and is consumed by the Go tools in `~/tools/`.
 
+It knows nothing about command-line parsing. `~/tools/goclikit` is the cobra
+front door — the `update` subcommand, and the version check racing alongside
+whatever else was typed — and it imports this.
+
 This one is written to be used by strangers. Treat the exported API, the README
 and the godoc as the product — a change that is merely convenient for the internal
-consumers is not automatically right. `go list -m all` names them; there are more
-than the handful this line used to claim.
+consumers is not automatically right. `go list -m all` names them.
 
 ## Layout
 
@@ -14,7 +17,6 @@ than the handful this line used to claim.
 | --- | --- |
 | root package | The library. Standard library imports only |
 | `autoupdate/` | The notify layer: gate, interval, state file. Also stdlib-only |
-| `cobracmd/` | The cobra `update` command and `Execute`. The only package importing cobra |
 | `semver.go` | Version comparison, replacing `x/mod/semver` |
 
 ## Constraints that must not regress
@@ -85,9 +87,8 @@ offline against a stub, plus one test against a local server", which cites this
 file. Everything runs offline.
 
 `Update` resolves the *running* executable, which under test is the test
-binary, so tests call `UpdateTo` with an explicit path and the cobra command is
-exercised through `--check`. Never write a test that calls `Update` directly —
-it would overwrite the test binary.
+binary, so tests call `UpdateTo` with an explicit path. Never write a test that
+calls `Update` directly — it would overwrite the test binary.
 
 `autoupdate` is tested through a `stubSource` that counts how often it was
 asked. Most of those tests assert that *nothing* happened, so the call count and

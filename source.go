@@ -20,9 +20,8 @@ type Source interface {
 }
 
 // Changeloger is an optional interface a [Source] may implement to describe
-// what changed between two versions. The cobracmd subpackage prints the result
-// after a successful update; a source that does not implement it simply
-// produces no changelog.
+// what changed between two versions. A source that does not implement it
+// simply produces no changelog, and [Changelog] returns none.
 type Changeloger interface {
 	Changelog(ctx context.Context, fromTag, toTag string) ([]string, error)
 }

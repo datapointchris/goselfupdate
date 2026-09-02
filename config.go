@@ -19,8 +19,8 @@ type Config struct {
 	Owner string
 	Repo  string
 
-	// Binary is the executable's name inside the release archive. It is also
-	// used in messages produced by the cobracmd subpackage.
+	// Binary is the executable's name inside the release archive. It also names
+	// the tool in whatever a caller prints about the update.
 	Binary string
 
 	// Version is the running build's version, conventionally injected with

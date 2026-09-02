@@ -72,8 +72,8 @@ type Config struct {
 	Interactive *bool
 
 	// Suppress skips the check unconditionally. Intended for a command that
-	// must never trigger one: an update command, a shell-completion callback.
-	// See [cobracmd] for the list that matters in practice.
+	// must never trigger one: an update command, a shell-completion callback
+	// firing on every TAB press, anything a script parses.
 	Suppress bool
 
 	// StateDir overrides where state is written. Defaults to [StateHome].

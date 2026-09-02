@@ -8,8 +8,8 @@
 
 Self-updating Go binaries, for CLIs released with [goreleaser] and GitHub.
 
-The core package and `autoupdate` import only the standard library. `cobracmd`
-is the one that brings in [cobra].
+Both packages import only the standard library, and no framework: this works the
+same behind `flag`, `cobra`, `urfave/cli` or a hand-rolled parser.
 
 ```go
 result, err := goselfupdate.Update(ctx, goselfupdate.Config{
@@ -28,10 +28,11 @@ go get github.com/datapointchris/goselfupdate
 
 ## A ready-made cobra command
 
-```go
-import "github.com/datapointchris/goselfupdate/cobracmd"
+[goclikit] wires this package into a [cobra] tree: an `update` subcommand, and a
+version check racing alongside whatever else was typed.
 
-root.AddCommand(cobracmd.New(goselfupdate.Config{
+```go
+root.AddCommand(goclikit.UpdateCommand(goselfupdate.Config{
     Owner: "datapointchris", Repo: "todoui", Binary: "todoui", Version: version,
 }))
 ```
@@ -50,9 +51,7 @@ $ todoui update --check
 
 The command carries no aliases. `update` is the fleet's one self-update verb,
 and an alias is what let `upgrade` coexist with it across every CLI without
-anyone choosing it. This subpackage is the only thing that imports cobra —
-projects using `flag`, `urfave/cli` or anything else pull in nothing by
-importing the core.
+anyone choosing it.
 
 ## What it does
 
@@ -222,40 +221,16 @@ func main() {
         Owner: "you", Repo: "tool", Binary: "tool", Version: version,
     }}
 
-    if err := cobracmd.Execute(context.Background(), rootCmd, config); err != nil {
-        if errors.Is(err, cobracmd.ErrUsage) {
-            os.Exit(2)
-        }
-        os.Exit(1)
-    }
+    session := autoupdate.Start(context.Background(), config)
+    err := run()          // whatever your program does
+    session.Finish()      // prints the notice, if there is one
+    ...
 }
 ```
 
-`ErrUsage` marks a failure caused by how the command was typed — an unknown or
-malformed flag, or an unknown subcommand — rather than by the command running
-and failing. Cobra returns both as ordinary errors, so without this every
-failure flattens to exit 1 and a caller cannot tell "you typed it wrong" from
-"it ran and failed". Only the former is worth retrying with different
-arguments. Exit 2 is the shell convention, and what Python's argparse uses.
-
-`Execute` also fills in what cobra leaves out of a typing mistake. An unknown
-flag names the flags closest to what was typed, and both an unknown flag and an
-unknown command name the command that lists the valid ones:
-
-```text
-$ tool search --ownd
-error: unknown flag: --ownd
-
-Did you mean this?
-  --owned
-
-Run 'tool search --help' for usage.
-```
-
-Suggestions respect the `DisableSuggestions` and `SuggestionsMinimumDistance`
-already set on the command, so a mistyped flag and a mistyped command are
-answered by one rule. The pointer is added only where cobra does not print it
-itself, which is decided by `SilenceErrors`.
+Start before the work and finish after it, so a fast command pays nothing and
+the line is not buried in its output. A cobra program gets this wiring, and the
+suppression list that goes with it, from [goclikit].
 
 Once per 24 hours, if a newer release exists, one line goes to stderr **after**
 your command's own output:
@@ -301,7 +276,7 @@ writers on one path and reports whichever wrote last as the state of all of
 them. `autoupdate.Machine` returns the name this process writes under.
 
 `autoupdate` links nothing outside the standard library, so a CLI using `flag`,
-`urfave/cli` or its own parser can take the notice without taking cobra.
+`urfave/cli` or its own parser takes the notice with no framework attached.
 
 ## Scope
 
@@ -344,3 +319,4 @@ MIT
 [`CleanupOldBinary`]: https://pkg.go.dev/github.com/datapointchris/goselfupdate#CleanupOldBinary
 
 [cobra]: https://github.com/spf13/cobra
+[goclikit]: https://github.com/datapointchris/goclikit

@@ -24,8 +24,9 @@
 //
 // [Check] performs the same lookup without downloading or writing anything.
 //
-// For a ready-made cobra command, see the cobracmd subpackage. It is kept
-// separate so that importing this package does not pull in a CLI framework.
+// For a ready-made cobra `update` command wired to this package, see
+// [github.com/datapointchris/goclikit]. Nothing here knows what a
+// command-line parser is.
 //
 // # Scope
 //
