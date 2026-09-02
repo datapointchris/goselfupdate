@@ -286,10 +286,18 @@ Presence-only, any value: `NO_AUTO_UPDATE=0` disables it, the same way
 `Config.Interactive` overrides terminal detection — pass `false` from a program
 that already knows it is writing into a pager or a structured-output mode.
 
-State lives in `${XDG_STATE_HOME:-~/.local/state}/<tool>/autoupdate.json`,
-written atomically, and the timestamp is written **before** the network call —
-`gh` stamps only on success, so a rate-limited or offline user re-hits the API
-on every invocation until the window resets.
+State lives in
+`${XDG_STATE_HOME:-~/.local/state}/<tool>/autoupdate-<machine>.json`, written
+atomically, and the timestamp is written **before** the network call — `gh`
+stamps only on success, so a rate-limited or offline user re-hits the API on
+every invocation until the window resets.
+
+`<machine>` is the bare lowercased hostname, and it is in the name because both
+fields the file carries — the version installed here, and the instant this box
+last checked — describe one machine. A state directory that is shared between
+machines, by a file syncer or a network home directory, otherwise has two
+writers on one path and reports whichever wrote last as the state of all of
+them. `autoupdate.Machine` returns the name this process writes under.
 
 `autoupdate` links nothing outside the standard library, so adding a notice to
 a CLI adds no dependencies. Only `cobracmd` imports cobra.

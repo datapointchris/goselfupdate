@@ -24,6 +24,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -31,12 +32,56 @@ import (
 //
 // The same schema is written by pyselfupdate and bashselfupdate, so any tool
 // can read any other tool's state and one dashboard can glob
-// ~/.local/state/*/autoupdate.json with no per-tool knowledge. Adding a field
+// ~/.local/state/*/autoupdate-*.json with no per-tool knowledge. Adding a field
 // is safe; renaming or repurposing one breaks the other two.
 const Schema = 1
 
-// StateFilename is the file written inside the per-tool state directory.
-const StateFilename = "autoupdate.json"
+// unknownMachine names the file when the host cannot be identified, so that a
+// filename is always well-formed and two unidentifiable boxes still collide
+// only with each other.
+const unknownMachine = "unknown"
+
+// Machine identifies the box this process is running on: the bare hostname,
+// lowercased, with any domain suffix dropped.
+//
+// pyselfupdate and bashselfupdate derive it the same way, so the three write
+// interleaved files a single reader can enumerate.
+func Machine() string {
+	name, err := os.Hostname()
+	if err != nil {
+		return unknownMachine
+	}
+	return CanonicalMachine(name)
+}
+
+// CanonicalMachine reduces a hostname from any source to the form [Machine]
+// records.
+//
+// A hostname reaches a reader fully qualified as often as bare, so a comparison
+// against a recorded name has to canonicalize both sides or it fails on every
+// host.
+func CanonicalMachine(name string) string {
+	bare := strings.ToLower(strings.TrimSpace(name))
+	if index := strings.IndexByte(bare, '.'); index >= 0 {
+		bare = bare[:index]
+	}
+	if bare == "" {
+		return unknownMachine
+	}
+	return bare
+}
+
+// StateFilename is the file one machine writes inside a tool's state directory.
+//
+// The machine is part of the name because a state directory is a synced
+// directory on some installations, and Syncthing has no merge: two boxes
+// writing one path leaves one winner plus a conflict copy nobody reads. Both
+// fields this file carries — the version installed here and the instant this
+// box last checked — describe one machine, so the split costs nothing and makes
+// the collision unreachable.
+func StateFilename(machine string) string {
+	return "autoupdate-" + machine + ".json"
+}
 
 // State is one tool's record of its last update check.
 //
@@ -78,9 +123,9 @@ func StateHome() string {
 	return filepath.Join(home, ".local", "state")
 }
 
-// StatePath is where a tool's state file lives.
+// StatePath is where this machine's state for a tool lives.
 func StatePath(tool string) string {
-	return filepath.Join(StateHome(), tool, StateFilename)
+	return filepath.Join(StateHome(), tool, StateFilename(Machine()))
 }
 
 // ReadState returns a tool's state, or a zero value when it has never been
@@ -97,7 +142,7 @@ func ReadState(tool string) State {
 // the package testable without reassigning XDG_STATE_HOME -- a process-global
 // mutation that is neither concurrency-safe nor honest.
 func readStateAt(directory, tool string) State {
-	data, err := os.ReadFile(filepath.Join(directory, tool, StateFilename))
+	data, err := os.ReadFile(filepath.Join(directory, tool, StateFilename(Machine())))
 	if err != nil {
 		return State{Tool: tool}
 	}
@@ -124,13 +169,14 @@ func writeState(directory string, state State) {
 	}
 	data = append(data, '\n')
 
-	path := filepath.Join(directory, state.Tool, StateFilename)
+	filename := StateFilename(Machine())
+	path := filepath.Join(directory, state.Tool, filename)
 	parent := filepath.Dir(path)
 	if err := os.MkdirAll(parent, 0o755); err != nil {
 		return
 	}
 
-	temporary, err := os.CreateTemp(parent, "."+StateFilename+".*")
+	temporary, err := os.CreateTemp(parent, "."+filename+".*")
 	if err != nil {
 		return
 	}

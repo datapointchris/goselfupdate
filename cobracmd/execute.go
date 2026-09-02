@@ -88,8 +88,8 @@ var neverAutoUpdate = map[string]bool{
 // fire one version check per screen.
 //
 // Measured 2026-08-22: eighteen tools here write ~/.local/state/<tool>/
-// autoupdate.json and call the releases API on `<tool> --help`. The interval
-// gate is the only reason it is not every invocation.
+// autoupdate-<machine>.json and call the releases API on `<tool> --help`. The
+// interval gate is the only reason it is not every invocation.
 //
 // Scanning is deliberately literal. A `--` ends the search because everything
 // after it is the command's own argument, and a suppression that fires when it

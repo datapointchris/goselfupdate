@@ -83,7 +83,7 @@ func (h *harness) run(ctx context.Context) Outcome {
 
 func (h *harness) state(t *testing.T) State {
 	t.Helper()
-	data, err := os.ReadFile(filepath.Join(h.dir, "demo", StateFilename))
+	data, err := os.ReadFile(filepath.Join(h.dir, "demo", StateFilename(Machine())))
 	if err != nil {
 		t.Fatalf("state file: %v", err)
 	}
@@ -95,7 +95,7 @@ func (h *harness) state(t *testing.T) State {
 }
 
 func (h *harness) stateExists() bool {
-	_, err := os.Stat(filepath.Join(h.dir, "demo", StateFilename))
+	_, err := os.Stat(filepath.Join(h.dir, "demo", StateFilename(Machine())))
 	return err == nil
 }
 
@@ -351,7 +351,7 @@ func TestStateSurvivesACorruptFile(t *testing.T) {
 	if err := os.MkdirAll(path, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(path, StateFilename), []byte("not json {{{"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(path, StateFilename(Machine())), []byte("not json {{{"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 
@@ -424,5 +424,43 @@ func TestAnUnparseableIntervalFallsBackToTheDefault(t *testing.T) {
 func TestToolVariable(t *testing.T) {
 	if got := toolVariable("my-tool", "NO_AUTO_UPDATE"); got != "MY_TOOL_NO_AUTO_UPDATE" {
 		t.Errorf("toolVariable = %q", got)
+	}
+}
+
+// The three libraries have to agree byte-for-byte on this reduction, because a
+// disagreement puts one machine's state under two names and neither box sees
+// the other's.
+func TestCanonicalMachineDropsTheDomainAndTheCase(t *testing.T) {
+	for raw, want := range map[string]string{
+		"archlinux":         "archlinux",
+		"Macmini":           "macmini",
+		"macmini.trusted":   "macmini",
+		"MBP.local":         "mbp",
+		"  archlinux.lan  ": "archlinux",
+		"":                  "unknown",
+		"   ":               "unknown",
+		".leading-dot":      "unknown",
+		"box.example.com":   "box",
+	} {
+		if got := CanonicalMachine(raw); got != want {
+			t.Errorf("CanonicalMachine(%q) = %q, want %q", raw, got, want)
+		}
+	}
+}
+
+func TestStateFilenameCarriesTheMachine(t *testing.T) {
+	if got := StateFilename("archlinux"); got != "autoupdate-archlinux.json" {
+		t.Errorf("StateFilename = %q", got)
+	}
+	if got := Machine(); got != CanonicalMachine(got) {
+		t.Errorf("Machine() = %q, which is not already canonical", got)
+	}
+}
+
+// Two machines sharing a state directory must not share a path, which is the
+// whole reason the name carries the machine.
+func TestTwoMachinesWriteTwoFiles(t *testing.T) {
+	if StateFilename("archlinux") == StateFilename("macmini") {
+		t.Fatal("two machines resolved to one state file")
 	}
 }

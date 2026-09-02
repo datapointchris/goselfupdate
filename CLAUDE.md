@@ -42,8 +42,12 @@ than the handful this line used to claim.
   is `standards/code-quality.md` § "A failure mode gets a name callers can branch
   on, never a message they have to match", which names this file as its source.
 - The gate order, the silent notify path, the pre-flight timestamp stamp and the
-  shared `autoupdate.json` schema are `standards/release.md` § Self-update. Not
-  restated here, as in bashselfupdate and pyselfupdate.
+  shared `autoupdate-<machine>.json` schema are `standards/release.md` §
+  Self-update. Not restated here, as in bashselfupdate and pyselfupdate.
+- **The machine in the state filename is derived identically in all three
+  siblings** — bare hostname, domain dropped, lowercased, `unknown` when it
+  cannot be read. A library deriving it differently puts one box's state under
+  two names, and neither box then sees the other's.
 - **The stamp rule caught a real bug here**, which is the part the standard does
   not carry: the first implementation stamped a *copy*, and the write after the
   check clobbered the timestamp back to zero. The test is named for it.
