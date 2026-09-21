@@ -1,4 +1,4 @@
-name: Bespoke CI
+name: "Cross-platform: macOS, Windows, oldest Go, cross-compile, fuzz"
 
 on:
   push:
@@ -29,8 +29,9 @@ jobs:
 
       - uses: actions/setup-go@v7
         with:
-          # The floor is whatever go.mod declares. A literal version here drifted
-          # from go.mod the moment go.mod was raised, and broke CI on the next push.
+          # The floor is whatever go.mod declares. A literal version here falls
+          # behind when go.mod is raised, and setup-go then installs a Go that
+          # refuses to build the module.
           go-version: ${{ matrix.go == 'stable' && 'stable' || '' }}
           go-version-file: go.mod
 
@@ -66,29 +67,6 @@ jobs:
             GOOS="${pair%%/*}" GOARCH="${pair##*/}" go build ./...
             GOOS="${pair%%/*}" GOARCH="${pair##*/}" go vet ./...
           done
-
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-
-      # gofumpt is deliberately absent from .golangci.yml, so validate.yml's
-      # Lint step does not cover it. The version tracks the gofumpt dotfiles
-      # installs, which is what the go-fumpt-repo pre-commit hook runs — two
-      # formatters at two versions rewrite one file in opposite directions.
-      - name: gofumpt
-        run: |
-          go install mvdan.cc/gofumpt@v0.12.0
-          unformatted="$(gofumpt -l .)"
-          if [ -n "$unformatted" ]; then
-            echo "not gofumpt-formatted:"
-            echo "$unformatted"
-            exit 1
-          fi
 
   fuzz:
     runs-on: ubuntu-latest
