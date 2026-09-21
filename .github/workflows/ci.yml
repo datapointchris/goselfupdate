@@ -82,7 +82,7 @@ jobs:
       # formatters at two versions rewrite one file in opposite directions.
       - name: gofumpt
         run: |
-          go install mvdan.cc/gofumpt@v0.11.0
+          go install mvdan.cc/gofumpt@v0.12.0
           unformatted="$(gofumpt -l .)"
           if [ -n "$unformatted" ]; then
             echo "not gofumpt-formatted:"
