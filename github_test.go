@@ -24,6 +24,15 @@ func newGitHubServer(t *testing.T, handler http.HandlerFunc) *GitHubSource {
 	}
 }
 
+// withoutCredentials clears every source the source resolves a token from, so
+// a test of the anonymous path cannot pick one up from the shell or the CI job.
+func withoutCredentials(t *testing.T) {
+	t.Helper()
+	t.Setenv("GITHUB_TOKEN", "")
+	t.Setenv("GH_TOKEN", "")
+	t.Setenv(TokenCommandEnv, "")
+}
+
 func writeJSON(t *testing.T, w http.ResponseWriter, payload any) {
 	t.Helper()
 
@@ -83,6 +92,7 @@ func TestGitHubSourceSendsAuthorizationAndVersionHeaders(t *testing.T) {
 }
 
 func TestGitHubSourceOmitsAuthorizationWithoutToken(t *testing.T) {
+	withoutCredentials(t)
 	var hadAuth bool
 	source := newGitHubServer(t, func(w http.ResponseWriter, r *http.Request) {
 		_, hadAuth = r.Header["Authorization"]
@@ -106,7 +116,7 @@ func TestGitHubSourceExplainsRateLimiting(t *testing.T) {
 		w.WriteHeader(http.StatusForbidden)
 	})
 
-	t.Setenv(TokenCommandEnv, "")
+	withoutCredentials(t)
 
 	_, err := source.LatestRelease(context.Background())
 	if err == nil || !strings.Contains(err.Error(), "anonymous rate limit") {
