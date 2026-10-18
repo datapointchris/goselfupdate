@@ -398,7 +398,7 @@ func TestParseInterval(t *testing.T) {
 	}
 }
 
-func TestAToolIntervalOutranksTheFleetInterval(t *testing.T) {
+func TestAToolIntervalOutranksTheSharedInterval(t *testing.T) {
 	h := newHarness(t, "v2.0.0")
 	h.env["AUTO_UPDATE_INTERVAL"] = "99d"
 	h.env["DEMO_AUTO_UPDATE_INTERVAL"] = "1s"

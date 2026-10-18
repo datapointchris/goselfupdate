@@ -20,13 +20,17 @@ const DefaultInterval = 24 * time.Hour
 // first, so the only thing this limits is how long Finish will wait.
 const DefaultTimeout = 5 * time.Second
 
-// Environment variables. Presence-only, any value including empty -- the
+// The environment variables every tool reads, whatever it is called. Each also
+// has a per-tool form that toolVariable builds by prefixing the tool's name:
+// MY_TOOL_NO_AUTO_UPDATE for a tool named my-tool.
+//
+// The disable variable is presence-only, any value including empty -- the
 // NO_COLOR convention -- so that NO_AUTO_UPDATE=0 cannot mean "on". The
 // interval gets its own name precisely so presence and value never have to
 // share one variable.
 const (
-	FleetDisable  = "NO_AUTO_UPDATE"
-	FleetInterval = "AUTO_UPDATE_INTERVAL"
+	sharedDisableVariable  = "NO_AUTO_UPDATE"
+	sharedIntervalVariable = "AUTO_UPDATE_INTERVAL"
 )
 
 // ciVariables are the ones gh checks, plus the two GitHub sets itself.
@@ -212,10 +216,10 @@ func gate(config Config) Skip {
 	if config.Suppress {
 		return SkipSuppressed
 	}
-	if _, ok := config.Environ(FleetDisable); ok {
+	if _, ok := config.Environ(sharedDisableVariable); ok {
 		return SkipDisabled
 	}
-	if _, ok := config.Environ(toolVariable(config.Tool, "NO_AUTO_UPDATE")); ok {
+	if _, ok := config.Environ(toolVariable(config.Tool, sharedDisableVariable)); ok {
 		return SkipDisabled
 	}
 
@@ -346,7 +350,7 @@ func (c Config) intervalFromEnv() time.Duration {
 		tool = c.Update.Binary
 	}
 
-	for _, name := range []string{toolVariable(tool, "AUTO_UPDATE_INTERVAL"), FleetInterval} {
+	for _, name := range []string{toolVariable(tool, sharedIntervalVariable), sharedIntervalVariable} {
 		if raw, ok := environ(name); ok {
 			if parsed, valid := parseInterval(raw); valid {
 				return parsed
