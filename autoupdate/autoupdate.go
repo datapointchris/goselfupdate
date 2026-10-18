@@ -188,12 +188,13 @@ func (s *Session) Finish() Outcome {
 	return s.outcome
 }
 
-// Enabled reports whether Start would check now, and the [Skip] reason when it
-// would not, which is what explains a missing notice. It runs Start's gate,
-// interval included, so it reads the clock and the state file. It never touches
-// the network and never writes the state file.
+// Enabled reports whether the tool checks at all, and the [Skip] reason when it
+// does not, which is what explains a missing notice. It runs every step of
+// Start's gate except the interval: it answers "is this tool opted in", not "is
+// it due", as pyselfupdate and bashselfupdate do. It reads no clock, no state
+// file and no network.
 func Enabled(config Config) (bool, Skip) {
-	skip := gate(config.resolved())
+	skip := optedIn(config.resolved())
 	return skip == SkipNone, skip
 }
 
@@ -214,8 +215,26 @@ func runCheck(ctx context.Context, config Config, stored State) Outcome {
 }
 
 // gate decides whether a check may run. Every step is local; nothing here
-// costs I/O beyond reading the state file in the last one.
+// costs I/O beyond reading the state file for the interval.
 func gate(config Config) Skip {
+	if skip := optedIn(config); skip != SkipNone {
+		return skip
+	}
+
+	stored := readStateFrom(config)
+	if stored.CheckedAtEpoch > 0 {
+		elapsed := config.Clock().Sub(time.Unix(stored.CheckedAtEpoch, 0))
+		if elapsed < config.Interval {
+			return SkipInterval
+		}
+	}
+
+	return SkipNone
+}
+
+// optedIn is the gate without the interval, so it reads only the config, the
+// environment and the streams.
+func optedIn(config Config) Skip {
 	if config.Suppress {
 		return SkipSuppressed
 	}
@@ -241,14 +260,6 @@ func gate(config Config) Skip {
 	for _, name := range ciVariables {
 		if _, ok := config.Environ(name); ok {
 			return SkipCI
-		}
-	}
-
-	stored := readStateFrom(config)
-	if stored.CheckedAtEpoch > 0 {
-		elapsed := config.Clock().Sub(time.Unix(stored.CheckedAtEpoch, 0))
-		if elapsed < config.Interval {
-			return SkipInterval
 		}
 	}
 

@@ -249,7 +249,7 @@ command, and nothing above the `Source` interface learns either name.
 ```go
 session := autoupdate.Start(ctx, config)    // runs the gate; if it passes, starts the check and returns
 outcome := session.Finish()                 // waits for the check, bounded by Timeout, then prints
-enabled, skip := autoupdate.Enabled(config) // whether a check would run now, and why not
+enabled, skip := autoupdate.Enabled(config) // whether this tool checks at all, and why not; ignores the interval
 path := autoupdate.StatePath("tool")        // where this machine's state for the tool lives
 ```
 
