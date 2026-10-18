@@ -1,15 +1,17 @@
 # goselfupdate — Claude Code instructions
 
 A public Go library, not a CLI. There is no `main` package and nothing to
-install; it ships as git tags and is consumed by the Go tools in `~/tools/`.
+install; it ships as git tags and Go CLIs import it.
 
-It knows nothing about command-line parsing. `~/tools/goclikit` is the cobra
-front door — the `update` subcommand, and the version check racing alongside
-whatever else was typed — and it imports this.
+It knows nothing about command-line parsing. goclikit
+(`github.com/datapointchris/goclikit`) is the cobra front door — the `update`
+subcommand, and the version check racing alongside whatever else was typed —
+and it imports this.
 
 This one is written to be used by strangers. Treat the exported API, the README
-and the godoc as the product — a change that is merely convenient for the internal
-consumers is not automatically right. `go list -m all` names them.
+and the godoc as the product — a change that is merely convenient for the
+author's own consumers is not automatically right. The command under Releasing
+finds them.
 
 ## Layout
 
@@ -30,12 +32,22 @@ consumers is not automatically right. `go list -m all` names them.
   reader or the disk.
 - **Assets are discovered from the release API, never rebuilt from a name
   template**, and an ambiguous match is an error rather than a guess.
-- **Errors are sentinels** — an `Err*` in `errors.go` per failure mode. The rule
-  is `standards/code-quality.md` § "A failure mode gets a name callers can branch
-  on, never a message they have to match", which names this file as its source.
-- The gate order, the silent notify path, the pre-flight timestamp stamp and the
-  shared `autoupdate-<machine>.json` schema are `standards/release.md` §
-  Self-update. Not restated here, as in bashselfupdate and pyselfupdate.
+- **Errors are sentinels** — an `Err*` in `errors.go` per failure mode. A
+  failure mode gets a name callers can branch on with `errors.Is`, never a
+  message they have to match.
+- **The notify layer's contract is shared with bashselfupdate and
+  pyselfupdate**, so a change to it lands in all three or in none:
+  - The gate is all local and runs in a fixed order: suppression, the
+    environment kill switch, a dev build, both streams being terminals, CI,
+    then the interval.
+  - The notify path never prints an error. A failure goes to the state file
+    and is swallowed; errors surface only in `<tool> update`.
+  - `checked_at` is stamped before the network call. `gh` stamps only on
+    success, so a rate-limited or offline user re-hits the API on every
+    invocation.
+  - The `autoupdate-<machine>.json` schema is read across languages with no
+    version negotiation. Adding a field is safe; renaming or repurposing one
+    breaks the other two.
 - **The machine in the state filename is derived identically in all three
   siblings** — bare hostname, domain dropped, lowercased, `unknown` when it
   cannot be read. A library deriving it differently puts one box's state under
@@ -70,9 +82,10 @@ an argument against it.
 
 ## Why IsReleaseVersion exists separately from IsValidVersion
 
-Why a dev build cannot be detected from a version string is `standards/release.md`
-§ "Never detect a dev build from a version string" — both example strings and the
-maxim are there.
+A dev build cannot be detected by parsing its version string. A Go
+pseudo-version, `v1.6.1-0.20260724161156-2c04703+dirty`, and a `git describe`
+string, `v1.2.3-4-gabc1234`, are both valid semver: they parse and sort
+correctly.
 
 What is this repo's own: a caller asking "is this a real release" therefore cannot
 use `IsValidVersion`, and every consumer had independently reimplemented the same
@@ -81,10 +94,9 @@ stopped that, and it is why two functions that look redundant are not.
 
 ## Testing
 
-The two-layer shape — `stubSource` for the logic, `github_test.go` against
-`httptest` for the wire — is `standards/testing.md` § "A network client tests
-offline against a stub, plus one test against a local server", which cites this
-file. Everything runs offline.
+Two layers, and both are needed: `stubSource` for the logic, and
+`github_test.go` against an `httptest` server for the wire. The stub proves the
+decisions and cannot prove the wire. Everything runs offline.
 
 `Update` resolves the *running* executable, which under test is the test
 binary, so tests call `UpdateTo` with an explicit path. Never write a test that
@@ -113,10 +125,11 @@ retracted once the module proxy caches it, only superseded — which is why the
 checks run before the tag exists rather than after it, as they did while
 releases were cut by hand.
 
-`allow-initial-development-versions` holds this on 0.x — why, and which three repos
-shipped 1.0.0 as their first automated release without it, is `standards/release.md`
-§ "On 0.x, go-semantic-release majors on *everything* unless told not to". Drop that
-input when the API is settled enough to promise compatibility.
+`allow-initial-development-versions` holds this on 0.x. Without it,
+go-semantic-release treats any change on a 0.x repo as a major, so a bare `fix:`
+ships 1.0.0 as the first automated release. With it, a major change becomes a
+minor bump and the major stays 0. Drop that input when the API is settled
+enough to promise compatibility, because 1.0 is that promise.
 
 The changelog is the GitHub release body, written by go-semantic-release from
 the commit subjects in the release. Nothing commits it back to the repo, so the
@@ -126,7 +139,7 @@ Then bump the consumers, which are whatever declares the module rather than a
 list that goes stale here:
 
 ```bash
-rg -l datapointchris/goselfupdate ~/tools/*/go.mod ~/webapps/*/cli/go.mod
+rg -l --glob go.mod datapointchris/goselfupdate <directory holding your checkouts>
 ```
 
 [GO-2026-5932]: https://pkg.go.dev/vuln/GO-2026-5932
@@ -139,8 +152,8 @@ them unanchored against the raw message and ORs the result with the configured m
 `.semrelrc` cannot stop it and it majors even a `fix:` commit.
 
 The module path carries no `/vN` suffix, so once a major exists `go install …@latest` cannot see it
-and silently resolves the highest v1 instead — `dotfiles check` reports the tool stale forever
-while `apply` exits 0 having installed nothing. Every already-installed binary is stranded too:
+and silently resolves the highest v1 instead — an installer comparing against the latest tag
+reports the tool stale forever while installing nothing. Every already-installed binary is stranded too:
 `goselfupdate` refuses a lower version and reports "already up to date". Recovery is a reinstall on
 each machine, and it is not a rewrite — branch protection refuses one on `main`, and the offending
 commit re-cuts the major on every push until a tag above it takes it out of range.
@@ -148,6 +161,6 @@ commit re-cuts the major on every push until a tag above it takes it out of rang
 **The ban covers a commit that merely discusses the trailer.** One explaining this exact caveat cut
 a fresh major on push. Name it some other way — "that marker" — and never quote it.
 
-Deliberate majors use `chore(release-major)`, the one subject `.semrelrc` leaves as a major. Full
-reasoning and the reset procedure: `standards/release.md` § "Never write the breaking-change
-trailer in a Go repo's commit message".
+Deliberate majors use `chore(release-major)`, the one subject `.semrelrc` leaves as a major. The
+same release adds the `/vN` suffix to the module path, so `go install <module>/vN@latest`
+resolves the new tag. Without the suffix, a deliberate major is the outage above.
