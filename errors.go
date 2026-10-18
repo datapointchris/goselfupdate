@@ -3,9 +3,11 @@ package goselfupdate
 import "errors"
 
 var (
-	// ErrDevBuild is returned when the running binary carries no usable
-	// version. Updating it would discard a local build for a release that may
-	// be older, with no way to tell which is newer.
+	// ErrDevBuild is returned when the running version is empty, "dev", or
+	// anything else that does not parse as semver. With nothing to compare, an
+	// update would discard a local build for a release that may be older. A Go
+	// pseudo-version parses as semver and is not refused here;
+	// [IsReleaseVersion] is the test that rejects it.
 	ErrDevBuild = errors.New("cannot update a development build")
 
 	// ErrNoRelease is returned when the source publishes no usable release.

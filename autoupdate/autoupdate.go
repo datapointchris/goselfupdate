@@ -15,9 +15,9 @@ import (
 // DefaultInterval is how long a check is good for.
 const DefaultInterval = 24 * time.Hour
 
-// DefaultTimeout bounds the check. It is generous because the check runs
-// concurrently with the caller's own work and is abandoned if that finishes
-// first, so the only thing this limits is how long Finish will wait.
+// DefaultTimeout bounds the check. Start gives the check a context with this
+// deadline, and Finish waits at most this long for a check still in flight. A
+// command that outlasts the check never waits for it.
 const DefaultTimeout = 5 * time.Second
 
 // The environment variables every tool reads, whatever it is called. Each also
@@ -155,7 +155,8 @@ func Start(ctx context.Context, config Config) *Session {
 	return session
 }
 
-// Finish prints the notice, if there is one, and returns what happened.
+// Finish waits for a check still in flight, for at most Config.Timeout, then
+// prints the notice, if there is one, and returns what happened.
 //
 // It never returns an error and never panics: an update notice must not be able
 // to break the command the user actually typed. Safe to call more than once.
@@ -169,9 +170,12 @@ func (s *Session) Finish() Outcome {
 	case outcome := <-s.results:
 		s.outcome = outcome
 	case <-time.After(s.config.Timeout):
-		// The command finished first and the check is still running. Abandon it
-		// rather than making the user wait; the timestamp was already written,
-		// so this costs at most one skipped day.
+		// The check is still running a full timeout after the command finished.
+		// Its context carries a deadline set at Start, which ends a check that
+		// honors it sooner. What reaches this branch ignores the deadline: a
+		// token command on its own timeout, or a Source that never reads its
+		// context. Cancel it rather than make the user wait; the timestamp was
+		// already written, so this costs at most one skipped interval.
 		s.cancel()
 		s.outcome = Outcome{Skip: SkipFailed}
 		return s.outcome
@@ -184,11 +188,10 @@ func (s *Session) Finish() Outcome {
 	return s.outcome
 }
 
-// Enabled reports whether a check would run, without touching the network, the
-// clock or the state file.
-//
-// The interval is deliberately not consulted: this answers "is this tool opted
-// in", not "is it due". It backs a fleet dashboard and a `<tool> update --why`.
+// Enabled reports whether Start would check now, and the [Skip] reason when it
+// would not, which is what explains a missing notice. It runs Start's gate,
+// interval included, so it reads the clock and the state file. It never touches
+// the network and never writes the state file.
 func Enabled(config Config) (bool, Skip) {
 	skip := gate(config.resolved())
 	return skip == SkipNone, skip
@@ -211,7 +214,7 @@ func runCheck(ctx context.Context, config Config, stored State) Outcome {
 }
 
 // gate decides whether a check may run. Every step is local; nothing here
-// costs I/O beyond a stat of the state file in the last one.
+// costs I/O beyond reading the state file in the last one.
 func gate(config Config) Skip {
 	if config.Suppress {
 		return SkipSuppressed

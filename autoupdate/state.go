@@ -13,8 +13,9 @@
 //	session.Finish()
 //
 // The check runs concurrently with the caller's own work and the notice is
-// printed afterwards, so a fast command pays nothing and the line is not buried
-// in the command's output.
+// printed afterwards, so the line is not buried in the command's output. A
+// command that outlasts the check pays nothing for it. One that finishes first
+// waits in [Session.Finish] for at most [Config.Timeout].
 //
 // A separate package from goselfupdate so that a program wanting only the
 // update half links none of this.

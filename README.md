@@ -91,7 +91,7 @@ go build -ldflags "-X main.version=v0.0.1" -o tool .  # stands in for an old rel
 ./tool update                                         # proves it: From and To match, applied: false
 ```
 
-**A build that is not a release refuses.** `Update` returns `ErrDevBuild` for
+**A version that is not semver refuses.** `Update` returns `ErrDevBuild` for
 an empty version, `dev`, or anything else that does not parse as semver. It
 returns before any request is made. There is nothing meaningful to compare, and
 an update would silently discard whatever local build was in place.

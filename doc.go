@@ -45,9 +45,12 @@
 // the running version and the release tag, since goreleaser configurations
 // disagree about whether to inject {{.Tag}} or {{.Version}}.
 //
-// A binary with no version injected reports itself as a development build and
-// refuses to update, because there is no meaningful version to compare and an
-// update would silently discard whatever local build was in place.
+// A binary whose version does not parse as semver, such as one with no version
+// injected, refuses to update with [ErrDevBuild]. There is no meaningful version
+// to compare, and an update would silently discard whatever local build was in
+// place. A Go pseudo-version such as v1.6.1-0.20260724161156-2c04703+dirty is
+// valid semver, so [Update] accepts it. A caller that must refuse those builds
+// too checks [IsReleaseVersion] first.
 //
 // # Release streams
 //

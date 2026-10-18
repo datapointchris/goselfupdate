@@ -15,10 +15,10 @@ const TokenCommandEnv = "GITHUB_TOKEN_COMMAND"
 //
 // Authenticating is the default because the alternative is not "no credential"
 // but sixty requests an hour, charged per IP address and shared by every host
-// behind one egress. Measured 2026-08-21 across one household: two machines
-// checking on a timer held that pool at zero for whole hours, and every tool on
-// the network that asked anonymously was refused. A default that has to be
-// opted into is a default nobody sets.
+// behind one egress. Two machines checking on a timer are enough to hold that
+// pool at zero for whole hours, and then every anonymous caller behind the same
+// address is refused. A default that has to be opted into is a default nobody
+// sets.
 const DefaultTokenCommand = "gh auth token"
 
 // tokenCommandTimeout bounds the helper. gh is a local read, but the variable
