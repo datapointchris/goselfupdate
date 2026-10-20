@@ -52,9 +52,9 @@ finds them.
   siblings** — bare hostname, domain dropped, lowercased, `unknown` when it
   cannot be read. A library deriving it differently puts one box's state under
   two names, and neither box then sees the other's.
-- **The stamp rule caught a real bug here**, which is the part the standard does
-  not carry: the first implementation stamped a *copy*, and the write after the
-  check clobbered the timestamp back to zero. The test is named for it.
+- **`Start` stamps the state value it later rewrites, never a copy of it.**
+  Stamping a copy let the write after the check clobber the timestamp back to
+  zero. `TestTheTimestampIsWrittenBeforeTheCheckNotAfter` is the test for it.
 
 ## Dependencies: one import is banned, not all of them
 
@@ -87,10 +87,10 @@ pseudo-version, `v1.6.1-0.20260724161156-2c04703+dirty`, and a `git describe`
 string, `v1.2.3-4-gabc1234`, are both valid semver: they parse and sort
 correctly.
 
-What is this repo's own: a caller asking "is this a real release" therefore cannot
-use `IsValidVersion`, and every consumer had independently reimplemented the same
-`^v\d+\.\d+\.\d+$` regex to get the right answer. Exporting both predicates is what
-stopped that, and it is why two functions that look redundant are not.
+So a caller asking "is this a real release" cannot use `IsValidVersion`, and every
+consumer had independently reimplemented the same `^v\d+\.\d+\.\d+$` regex to get
+the right answer. Exporting both predicates is what stopped that, and it is why two
+functions that look redundant are not.
 
 ## Testing
 
@@ -148,16 +148,16 @@ rg -l --glob go.mod datapointchris/goselfupdate <directory holding your checkout
 
 The words `BREAKING CHANGE` — either number, colon or not, subject or body — cut a major release
 once this repo is past 0.x, and a major from v1 on is an outage rather than a version. On 0.x,
-`allow-initial-development-versions` cuts them as a minor. `commit-analyzer-cz` matches
-them unanchored against the raw message and ORs the result with the configured major rules, so
+`allow-initial-development-versions` cuts them as a minor. `commit-analyzer-cz` matches them
+unanchored against the raw message and ORs the result with the configured major rules, so
 `.semrelrc` cannot stop it and it majors even a `fix:` commit.
 
 The module path carries no `/vN` suffix, so once a major exists `go install …@latest` cannot see it
 and silently resolves the highest v1 instead — an installer comparing against the latest tag
-reports the tool stale forever while installing nothing. Every already-installed binary is stranded too:
-`goselfupdate` refuses a lower version and reports "already up to date". Recovery is a reinstall on
-each machine, and it is not a rewrite — branch protection refuses one on `main`, and the offending
-commit re-cuts the major on every push until a tag above it takes it out of range.
+reports the tool stale forever while installing nothing. Every already-installed binary is stranded
+too: `goselfupdate` refuses a lower version and reports "already up to date". Recovery is a
+reinstall on each machine, and it is not a rewrite — branch protection refuses one on `main`, and
+the offending commit re-cuts the major on every push until a tag above it takes it out of range.
 
 **The ban covers a commit that merely discusses the trailer.** One explaining this exact caveat cut
 a fresh major on push. Name it some other way — "that marker" — and never quote it.

@@ -24,8 +24,9 @@ func newGitHubServer(t *testing.T, handler http.HandlerFunc) *GitHubSource {
 	}
 }
 
-// withoutCredentials clears every source the source resolves a token from, so
-// a test of the anonymous path cannot pick one up from the shell or the CI job.
+// withoutCredentials empties $GITHUB_TOKEN, $GH_TOKEN and the token command, so
+// a test of the anonymous path cannot pick a credential up from the shell or
+// from a CI job that exports the job token to its hooks.
 func withoutCredentials(t *testing.T) {
 	t.Helper()
 	t.Setenv("GITHUB_TOKEN", "")
