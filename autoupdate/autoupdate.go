@@ -278,8 +278,8 @@ func isInteractive(config Config) bool {
 	return isTerminal(os.Stdout) && isTerminal(os.Stderr)
 }
 
-// isTerminal avoids a dependency on x/term, which would cost this package the
-// zero-dependency guarantee the whole library is built around.
+// isTerminal reads the character-device bit from Stat rather than importing
+// x/term for it.
 func isTerminal(file *os.File) bool {
 	info, err := file.Stat()
 	if err != nil {

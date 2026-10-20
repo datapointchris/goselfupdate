@@ -17,8 +17,7 @@ const TokenCommandEnv = "GITHUB_TOKEN_COMMAND"
 // but sixty requests an hour, charged per IP address and shared by every host
 // behind one egress. Two machines checking on a timer are enough to hold that
 // pool at zero for whole hours, and then every anonymous caller behind the same
-// address is refused. A default that has to be opted into is a default nobody
-// sets.
+// address is refused.
 const DefaultTokenCommand = "gh auth token"
 
 // tokenCommandTimeout bounds the helper. gh is a local read, but the variable
