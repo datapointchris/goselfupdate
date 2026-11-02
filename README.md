@@ -338,8 +338,8 @@ Changes:
 `Execute` sets `Suppress` for the update command under whatever name it was
 given, and for `version`, `completion` and its subcommands, `help`, cobra's
 shell-completion callbacks, `--help`, and a command line cobra cannot resolve.
-The completion callback is the one that matters most: it runs on every TAB
-press.
+The completion callback runs on every TAB press, so a check there would
+sit in front of every completion.
 
 The command takes no alias. A second verb such as `upgrade` beside `update`
 leaves its reader guessing which one is real.

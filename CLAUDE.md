@@ -53,7 +53,7 @@ finds them.
   cannot be read. A library deriving it differently puts one box's state under
   two names, and neither box then sees the other's.
 - **`Start` stamps the state value it later rewrites, never a copy of it.**
-  Stamping a copy let the write after the check clobber the timestamp back to
+  Stamping a copy lets the write after the check clobber the timestamp back to
   zero. `TestTheTimestampIsWrittenBeforeTheCheckNotAfter` is the test for it.
 
 ## Dependencies: one import is banned, not all of them

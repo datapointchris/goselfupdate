@@ -189,10 +189,10 @@ func (s *Session) Finish() Outcome {
 }
 
 // Enabled reports whether the tool checks at all, and the [Skip] reason when it
-// does not, which is what explains a missing notice. It runs every step of
-// Start's gate except the interval: it answers "is this tool opted in", not "is
-// it due", as pyselfupdate and bashselfupdate do. It reads no clock, no state
-// file and no network.
+// does not. It runs every step of Start's gate except the interval, so inside
+// the interval it still reports true for a tool that checks normally, as
+// pyselfupdate and bashselfupdate do. It reads no clock, no state file and no
+// network.
 func Enabled(config Config) (bool, Skip) {
 	skip := optedIn(config.resolved())
 	return skip == SkipNone, skip
@@ -278,8 +278,6 @@ func isInteractive(config Config) bool {
 	return isTerminal(os.Stdout) && isTerminal(os.Stderr)
 }
 
-// isTerminal reads the character-device bit from Stat rather than importing
-// x/term for it.
 func isTerminal(file *os.File) bool {
 	info, err := file.Stat()
 	if err != nil {
