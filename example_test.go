@@ -19,8 +19,8 @@ var version = "v1.0.0"
 func ExampleUpdate() {
 	result, err := goselfupdate.Update(context.Background(), goselfupdate.Config{
 		Owner:   "datapointchris",
-		Repo:    "todoui",
-		Binary:  "todoui",
+		Repo:    "projects",
+		Binary:  "projects",
 		Version: version,
 	})
 	if err != nil {
@@ -37,8 +37,8 @@ func ExampleUpdate() {
 func ExampleCheck() {
 	result, err := goselfupdate.Check(context.Background(), goselfupdate.Config{
 		Owner:   "datapointchris",
-		Repo:    "todoui",
-		Binary:  "todoui",
+		Repo:    "projects",
+		Binary:  "projects",
 		Version: version,
 	})
 	if err != nil {
@@ -55,8 +55,8 @@ func ExampleCheck() {
 func ExampleUpdate_errorHandling() {
 	_, err := goselfupdate.Update(context.Background(), goselfupdate.Config{
 		Owner:   "datapointchris",
-		Repo:    "todoui",
-		Binary:  "todoui",
+		Repo:    "projects",
+		Binary:  "projects",
 		Version: version,
 	})
 

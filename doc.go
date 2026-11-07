@@ -11,8 +11,8 @@
 //
 //	result, err := goselfupdate.Update(ctx, goselfupdate.Config{
 //		Owner:   "datapointchris",
-//		Repo:    "todoui",
-//		Binary:  "todoui",
+//		Repo:    "projects",
+//		Binary:  "projects",
 //		Version: version, // injected at build time via ldflags
 //	})
 //	if err != nil {

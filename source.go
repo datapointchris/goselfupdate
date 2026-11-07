@@ -95,8 +95,8 @@ func (r Release) matchPlatform(arches []string) []Asset {
 }
 
 // matchesPlatform reports whether an asset name names the running OS and one
-// of the given architectures. Separators vary between projects
-// (todoui_1.0.0_darwin_arm64.tar.gz, tool-1.0.0-darwin-arm64.zip), so both are
+// of the given architectures. Separators vary between repos
+// (projects_1.0.0_darwin_arm64.tar.gz, tool-1.0.0-darwin-arm64.zip), so both are
 // matched as delimited words rather than as a fixed suffix.
 func matchesPlatform(name string, arches []string) bool {
 	lower := strings.ToLower(name)
