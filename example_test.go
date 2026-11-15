@@ -76,8 +76,8 @@ func ExampleUpdate_errorHandling() {
 }
 
 // A token raises GitHub's unauthenticated limit of 60 requests an hour and is
-// required for a private repository. $GITHUB_TOKEN and $GH_TOKEN are used
-// automatically when Token is empty.
+// required for a private repository. When Token is empty, the default source
+// finds one itself, in the order [goselfupdate.GitHubSource.Token] gives.
 func ExampleConfig_privateRepository() {
 	cfg := goselfupdate.Config{
 		Owner:      "datapointchris",

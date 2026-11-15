@@ -31,12 +31,14 @@ type Config struct {
 
 	// Token authenticates requests to the release source. Without one, GitHub
 	// allows 60 API requests per hour per IP address and rejects private
-	// repositories outright. Defaults to $GITHUB_TOKEN, then $GH_TOKEN, then
-	// [Config.TokenFunc].
+	// repositories outright. Token and TokenFunc are handed to the default
+	// [GitHubSource], and [GitHubSource.Token] says where a token comes from
+	// when this is empty.
 	Token string
 
-	// TokenFunc resolves a token when Token is empty and neither environment
-	// variable is set. Returning "" leaves the request unauthenticated.
+	// TokenFunc is a token source of the caller's own, handed to the default
+	// [GitHubSource]. [GitHubSource.TokenFunc] says when it is tried and what
+	// returning "" falls through to.
 	//
 	// It exists because a credential can be expensive to obtain — a keychain
 	// prompt, a `gh auth token` subprocess — and it is called only when a
