@@ -6,9 +6,9 @@ import (
 )
 
 // Semantic version comparison, implemented here rather than taken from
-// golang.org/x/mod/semver so that this package has no third-party
-// dependencies. x/mod raises its own minimum Go version over time, which for a
-// library means periodically excluding callers on a supported Go release.
+// golang.org/x/mod/semver. x/mod raises its own minimum Go version over time,
+// and that floor would land on every caller of this library, periodically
+// excluding callers on a supported Go release.
 //
 // Precedence follows https://semver.org section 11.
 

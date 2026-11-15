@@ -41,9 +41,10 @@
 // # Versions
 //
 // Versions are compared by semantic version precedence, implemented here so the
-// package keeps no third-party dependencies. A leading "v" is optional on both
-// the running version and the release tag, since goreleaser configurations
-// disagree about whether to inject {{.Tag}} or {{.Version}}.
+// package's minimum Go version is not raised by a version library's. A leading
+// "v" is optional on both the running version and the release tag, since
+// goreleaser configurations disagree about whether to inject {{.Tag}} or
+// {{.Version}}.
 //
 // A binary whose version does not parse as semver, such as one with no version
 // injected, refuses to update with [ErrDevBuild]. There is no meaningful version
