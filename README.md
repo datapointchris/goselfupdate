@@ -335,11 +335,9 @@ Changes:
   • docs: describe the config file's search order
 ```
 
-`Execute` sets `Suppress` for the update command under whatever name it was
-given, and for `version`, `completion` and its subcommands, `help`, cobra's
-shell-completion callbacks, `--help`, and a command line cobra cannot resolve.
-The completion callback runs on every TAB press, so a check there would
-sit in front of every completion.
+`Execute` sets `Suppress` on each command a check would only race or slow
+down, such as the update command and cobra's shell-completion callbacks.
+[goclikit]'s README lists every one and says why.
 
 The command takes no alias. A second verb such as `upgrade` beside `update`
 leaves its reader guessing which one is real.
@@ -357,9 +355,8 @@ case errors.Is(err, goselfupdate.ErrChecksumMismatch):
 }
 ```
 
-The full set is `ErrDevBuild`, `ErrNoRelease`, `ErrNoAsset`,
-`ErrAmbiguousAsset`, `ErrNoChecksums`, `ErrChecksumMismatch`,
-`ErrBinaryNotFound` and `ErrInvalidConfig`.
+Every sentinel, and the failure it names, is in the package's [variables]
+on pkg.go.dev.
 
 ## Security — checksums catch a bad download, not a compromised account
 
@@ -409,6 +406,7 @@ MIT
 [sanbornm/go-selfupdate]: https://github.com/sanbornm/go-selfupdate
 [`Verifier`]: https://pkg.go.dev/github.com/datapointchris/goselfupdate#Verifier
 [`Source`]: https://pkg.go.dev/github.com/datapointchris/goselfupdate#Source
+[variables]: https://pkg.go.dev/github.com/datapointchris/goselfupdate#pkg-variables
 [cobra]: https://github.com/spf13/cobra
 [goclikit]: https://github.com/datapointchris/goclikit
 [pyselfupdate]: https://github.com/datapointchris/pyselfupdate
