@@ -149,8 +149,8 @@ rg -l --glob go.mod datapointchris/goselfupdate <directory holding your checkout
 The words `BREAKING CHANGE` — either number, colon or not, subject or body — cut a major release
 once this repo is past 0.x, and a major from v1 on is an outage rather than a version. On 0.x,
 `allow-initial-development-versions` cuts them as a minor. `commit-analyzer-cz` matches them
-unanchored against the raw message and ORs the result with the configured major rules, so
-`.semrelrc` cannot stop it and it majors even a `fix:` commit.
+unanchored against the raw message and ORs the result with any configured major rules. So no
+`.semrelrc` rule could stop it, here or in one added later, and it majors even a `fix:` commit.
 
 The module path carries no `/vN` suffix, so once a major exists `go install …@latest` cannot see it
 and silently resolves the highest v1 instead — an installer comparing against the latest tag
