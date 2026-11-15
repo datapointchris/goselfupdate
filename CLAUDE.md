@@ -32,6 +32,11 @@ finds them.
   reader or the disk.
 - **Assets are discovered from the release API, never rebuilt from a name
   template**, and an ambiguous match is an error rather than a guess.
+- **Each outside effect has one door.** A subprocess starts only in
+  `tokenFromCommand`, so every command is bounded by its timeout and degrades
+  to an anonymous request. An HTTP request is built and sent only in
+  `(*GitHubSource).fetch`, so every one carries the credential and the response
+  size bound. `TestEveryProcessAndRequestGoesThroughItsDoor` fails on a bypass.
 - **Errors are sentinels** — an `Err*` in `errors.go` per failure mode. A
   failure mode gets a name callers can branch on with `errors.Is`, never a
   message they have to match.
