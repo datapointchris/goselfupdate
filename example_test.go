@@ -50,8 +50,10 @@ func ExampleCheck() {
 	}
 }
 
-// Errors are sentinels, so a caller can tell a development build or a rate
-// limit apart from a genuine failure without matching on message text.
+// Errors are sentinels, so a caller can tell a development build, a platform
+// with no published asset or a checksum mismatch apart from any other failure
+// without matching on message text. A rate limit has no sentinel and lands in
+// the default case.
 func ExampleUpdate_errorHandling() {
 	_, err := goselfupdate.Update(context.Background(), goselfupdate.Config{
 		Owner:   "datapointchris",
