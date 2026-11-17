@@ -32,11 +32,13 @@ finds them.
   reader or the disk.
 - **Assets are discovered from the release API, never rebuilt from a name
   template**, and an ambiguous match is an error rather than a guess.
-- **Each outside effect has one door.** A subprocess starts only in
-  `tokenFromCommand`, so every command is bounded by its timeout and degrades
-  to an anonymous request. An HTTP request is built and sent only in
-  `(*GitHubSource).fetch`, so every one carries the credential and the response
-  size bound, and refuses a URL or a redirect that is not https or loopback. `TestEveryProcessAndRequestGoesThroughItsDoor` fails on a bypass.
+- **An HTTP request is built and sent only in `(*GitHubSource).fetch`**, so
+  every one carries the credential and the response size bound, and refuses a
+  URL or a redirect that is not https or loopback.
+  `TestEveryRequestGoesThroughFetch` fails on a bypass.
+- **A subprocess takes a context and a `WaitDelay`.** golangci-lint's `noctx`
+  refuses one started without a context. `tokenFromCommand` is the only one,
+  and a failure there degrades to an anonymous request.
 - **Errors are sentinels** — an `Err*` in `errors.go` per failure mode. A
   failure mode gets a name callers can branch on with `errors.Is`, never a
   message they have to match.

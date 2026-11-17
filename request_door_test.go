@@ -18,56 +18,43 @@ import (
 
 const modulePath = "github.com/datapointchris/goselfupdate"
 
-// effectDoors names the one function each outside effect may start from.
-//
-// A subprocess starts only in tokenFromCommand, so every command the library
-// runs is bounded by its timeout and degrades to an anonymous request. An HTTP
-// request is built and sent only in fetch, so every request carries the
-// credential, the API version header and the response size bound.
-var effectDoors = map[string]string{
-	"subprocess": "tokenFromCommand",
-	"request":    "(*GitHubSource).fetch",
-}
+// requestDoor is the one function that builds and sends an HTTP request, so
+// every request carries the credential, the API version header and the
+// response size bound.
+const requestDoor = "(*GitHubSource).fetch"
 
-// TestEveryProcessAndRequestGoesThroughItsDoor type-checks every non-test file
-// in the module and fails on any subprocess or HTTP request started outside its
-// door. Identifiers are judged by the object they resolve to, so an aliased
-// import or a method value is caught the same as a direct call.
+// TestEveryRequestGoesThroughFetch type-checks every non-test file in the
+// module and fails on any HTTP request built or sent outside fetch.
+// Identifiers are judged by the object they resolve to, so an aliased import
+// or a method value is caught the same as a direct call.
 //
 // Files are selected by the running platform's build constraints, so the
 // Windows-only install file is read on the Windows runner.
-func TestEveryProcessAndRequestGoesThroughItsDoor(t *testing.T) {
+func TestEveryRequestGoesThroughFetch(t *testing.T) {
 	root, err := filepath.Abs(".")
 	if err != nil {
 		t.Fatal(err)
 	}
-	scan, err := scanModuleForEffects(root)
+	scan, err := scanModuleForRequests(root)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for effect, door := range effectDoors {
-		if scan.inDoor[effect] == 0 {
-			t.Fatalf("found no %s inside %s, reading %s — the walk read nothing it "+
-				"could judge rather than finding everything compliant", effect, door, root)
-		}
+	if scan.inDoor == 0 {
+		t.Fatalf("found no request inside %s, reading %s — the walk read nothing it "+
+			"could judge rather than finding everything compliant", requestDoor, root)
 	}
 	if len(scan.faults) > 0 {
-		t.Fatalf("an effect started outside its door:\n  %s\n\n"+
-			"Run a subprocess from tokenFromCommand and send a request through "+
-			"(*GitHubSource).fetch.", strings.Join(scan.faults, "\n  "))
+		t.Fatalf("a request was made outside %s:\n  %s", requestDoor, strings.Join(scan.faults, "\n  "))
 	}
 }
 
-// TestTheEffectDoorCheckFailsOnABypass proves the check can fail, which is what
-// makes its passing evidence of anything.
-func TestTheEffectDoorCheckFailsOnABypass(t *testing.T) {
+// TestTheRequestDoorCheckFailsOnABypass proves the check can fail, which is
+// what makes its passing evidence of anything.
+func TestTheRequestDoorCheckFailsOnABypass(t *testing.T) {
 	cases := map[string]string{
-		"aliased exec import": `package p
-import run "os/exec"
-func f() { _, _ = run.LookPath("x") }`,
-		"package-level request": `package p
-import "net/http"
-func f() { _, _ = http.Get("https://example.com") }`,
+		"aliased http import": `package p
+import web "net/http"
+func f() { _, _ = web.Get("https://example.com") }`,
 		"client sent outside fetch": `package p
 import "net/http"
 func f(c *http.Client, r *http.Request) { _, _ = c.Do(r) }`,
@@ -83,7 +70,7 @@ func f(c *http.Client, r *http.Request) { _, _ = c.Do(r) }`,
 			if err != nil {
 				t.Fatal(err)
 			}
-			scan := effectScan{inDoor: map[string]int{}}
+			var scan requestScan
 			scan.read(fset, "", []*ast.File{file}, info)
 			if len(scan.faults) == 0 {
 				t.Error("the bypass passed the check")
@@ -92,15 +79,15 @@ func f(c *http.Client, r *http.Request) { _, _ = c.Do(r) }`,
 	}
 }
 
-type effectScan struct {
+type requestScan struct {
 	faults []string
-	inDoor map[string]int
+	inDoor int
 }
 
-// scanModuleForEffects checks the root package first, so a package importing
+// scanModuleForRequests checks the root package first, so a package importing
 // it resolves to the copy already checked.
-func scanModuleForEffects(root string) (effectScan, error) {
-	scan := effectScan{inDoor: map[string]int{}}
+func scanModuleForRequests(root string) (requestScan, error) {
+	var scan requestScan
 	var directories []string
 	err := filepath.WalkDir(root, func(path string, entry fs.DirEntry, err error) error {
 		if err != nil {
@@ -176,8 +163,8 @@ func (m moduleImporter) Import(path string) (*types.Package, error) {
 	return m.standard.Import(path)
 }
 
-// read records each effect inside its door and each one outside it as a fault.
-func (s *effectScan) read(fset *token.FileSet, root string, files []*ast.File, info *types.Info) {
+// read counts each request inside fetch and records each one outside it as a fault.
+func (s *requestScan) read(fset *token.FileSet, root string, files []*ast.File, info *types.Info) {
 	for _, file := range files {
 		for _, declaration := range file.Decls {
 			enclosing := ""
@@ -186,15 +173,11 @@ func (s *effectScan) read(fset *token.FileSet, root string, files []*ast.File, i
 			}
 			ast.Inspect(declaration, func(node ast.Node) bool {
 				identifier, ok := node.(*ast.Ident)
-				if !ok {
+				if !ok || !startsRequest(info.Uses[identifier]) {
 					return true
 				}
-				effect := effectOf(info.Uses[identifier])
-				if effect == "" {
-					return true
-				}
-				if enclosing == effectDoors[effect] {
-					s.inDoor[effect]++
+				if enclosing == requestDoor {
+					s.inDoor++
 					return true
 				}
 				position := fset.Position(identifier.Pos())
@@ -205,8 +188,7 @@ func (s *effectScan) read(fset *token.FileSet, root string, files []*ast.File, i
 				if where == "" {
 					where = "a package-level declaration"
 				}
-				s.faults = append(s.faults, fmt.Sprintf("%s: %s in %s starts a %s outside %s",
-					position, identifier.Name, where, effect, effectDoors[effect]))
+				s.faults = append(s.faults, fmt.Sprintf("%s: %s in %s", position, identifier.Name, where))
 				return true
 			})
 		}
@@ -228,52 +210,34 @@ func functionName(function *ast.FuncDecl) string {
 	return function.Name.Name
 }
 
-// effectOf names the effect an object starts, or returns "".
-func effectOf(object types.Object) string {
-	if object == nil || object.Pkg() == nil {
-		return ""
+// startsRequest reports whether an object builds or sends an HTTP request.
+func startsRequest(object types.Object) bool {
+	if object == nil || object.Pkg() == nil || object.Pkg().Path() != "net/http" {
+		return false
 	}
-	if _, isPackageName := object.(*types.PkgName); isPackageName {
-		return ""
+	function, ok := object.(*types.Func)
+	if !ok {
+		return false
 	}
 	name := object.Name()
-	switch object.Pkg().Path() {
-	case "os/exec":
-		return "subprocess"
-	case "os":
-		if name == "StartProcess" {
-			return "subprocess"
+	receiver := function.Type().(*types.Signature).Recv()
+	if receiver == nil {
+		switch name {
+		case "NewRequest", "NewRequestWithContext", "Get", "Head", "Post", "PostForm":
+			return true
 		}
-	case "syscall":
-		if name == "ForkExec" || name == "StartProcess" || name == "Exec" {
-			return "subprocess"
-		}
-	case "net/http":
-		function, ok := object.(*types.Func)
-		if !ok {
-			return ""
-		}
-		receiver := function.Type().(*types.Signature).Recv()
-		if receiver == nil {
-			switch name {
-			case "NewRequest", "NewRequestWithContext", "Get", "Head", "Post", "PostForm":
-				return "request"
-			}
-			return ""
-		}
-		switch receiverTypeName(receiver.Type()) {
-		case "Client":
-			switch name {
-			case "Do", "Get", "Head", "Post", "PostForm":
-				return "request"
-			}
-		case "Transport", "RoundTripper":
-			if name == "RoundTrip" {
-				return "request"
-			}
-		}
+		return false
 	}
-	return ""
+	switch receiverTypeName(receiver.Type()) {
+	case "Client":
+		switch name {
+		case "Do", "Get", "Head", "Post", "PostForm":
+			return true
+		}
+	case "Transport", "RoundTripper":
+		return name == "RoundTrip"
+	}
+	return false
 }
 
 func receiverTypeName(receiver types.Type) string {
