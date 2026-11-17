@@ -36,7 +36,7 @@ finds them.
   `tokenFromCommand`, so every command is bounded by its timeout and degrades
   to an anonymous request. An HTTP request is built and sent only in
   `(*GitHubSource).fetch`, so every one carries the credential and the response
-  size bound. `TestEveryProcessAndRequestGoesThroughItsDoor` fails on a bypass.
+  size bound, and refuses a URL or a redirect that is not https or loopback. `TestEveryProcessAndRequestGoesThroughItsDoor` fails on a bypass.
 - **Errors are sentinels** — an `Err*` in `errors.go` per failure mode. A
   failure mode gets a name callers can branch on with `errors.Is`, never a
   message they have to match.

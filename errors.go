@@ -36,4 +36,9 @@ var (
 
 	// ErrInvalidConfig is returned when a [Config] is missing a required field.
 	ErrInvalidConfig = errors.New("invalid config")
+
+	// ErrInsecureURL is returned when a request or the redirect it ended on is
+	// not https and not to loopback. The checksum is fetched the same way as the
+	// asset, so a plaintext hop lets one network attacker replace both.
+	ErrInsecureURL = errors.New("refusing a URL that is not https")
 )

@@ -5,7 +5,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
+	neturl "net/url"
 	"strconv"
 	"strings"
 	"sync"
@@ -284,6 +286,9 @@ func (s *GitHubSource) fetch(ctx context.Context, url, accept string) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
+	if !secure(req.URL) {
+		return nil, fmt.Errorf("%w: %s", ErrInsecureURL, url)
+	}
 	req.Header.Set("Accept", accept)
 	req.Header.Set("X-GitHub-Api-Version", "2022-11-28")
 	token := s.credential()
@@ -302,11 +307,21 @@ func (s *GitHubSource) fetch(ctx context.Context, url, accept string) ([]byte, e
 	}
 	defer func() { _ = resp.Body.Close() }()
 
+	if !secure(resp.Request.URL) {
+		return nil, fmt.Errorf("%w: %s redirected to %s", ErrInsecureURL, url, resp.Request.URL)
+	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, statusError(resp, url, token != "")
 	}
 
 	return io.ReadAll(io.LimitReader(resp.Body, maxResponseSize))
+}
+
+// secure reports whether u is https, or any scheme to loopback, where no network
+// sits between the two ends.
+func secure(u *neturl.URL) bool {
+	host := u.Hostname()
+	return u.Scheme == "https" || host == "localhost" || net.ParseIP(host).IsLoopback()
 }
 
 // statusError turns a failed response into a message that names the likely

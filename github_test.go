@@ -455,3 +455,15 @@ func TestGitHubSourceDownloadsThroughTheAPIAssetEndpoint(t *testing.T) {
 		t.Errorf("Authorization = %q, want the token so private assets resolve", gotAuth)
 	}
 }
+
+// The checksum and the asset come down the same way, so a plaintext base URL
+// would let one attacker on the path replace both and pass verification.
+func TestAPlaintextURLIsRefusedBeforeAnyRequest(t *testing.T) {
+	withoutCredentials(t)
+	source := &GitHubSource{Owner: "datapointchris", Repo: "tool", APIBase: "http://api.example.invalid"}
+
+	_, err := source.LatestRelease(context.Background())
+	if !errors.Is(err, ErrInsecureURL) {
+		t.Fatalf("err = %v, want ErrInsecureURL", err)
+	}
+}
