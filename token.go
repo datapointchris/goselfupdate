@@ -25,6 +25,11 @@ const DefaultTokenCommand = "gh auth token"
 // or a touch prompt nobody is there to answer — and the check runs on a timer.
 const tokenCommandTimeout = 10 * time.Second
 
+// tokenCommandWaitDelay is how long the kill waits on the helper's children.
+// The context kills only the helper itself, and a script such as pass forks
+// gpg, which holds the output pipe Output reads until it exits.
+const tokenCommandWaitDelay = 2 * time.Second
+
 func tokenFromEnv() string {
 	for _, name := range []string{"GITHUB_TOKEN", "GH_TOKEN"} {
 		if value := os.Getenv(name); value != "" {
@@ -66,7 +71,9 @@ func tokenFromCommand() string {
 
 	ctx, cancel := context.WithTimeout(context.Background(), tokenCommandTimeout)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, binary, argv[1:]...).Output()
+	cmd := exec.CommandContext(ctx, binary, argv[1:]...)
+	cmd.WaitDelay = tokenCommandWaitDelay
+	out, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
