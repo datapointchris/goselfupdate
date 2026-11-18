@@ -23,9 +23,12 @@ finds them.
 
 ## Constraints that must not regress
 
-- **`go.mod` declares the Go floor and CI tests against it**, reading the version
-  from the file rather than repeating it. Raising the floor excludes callers and
-  needs a reason beyond convenience.
+- **`go.mod`'s `go` line declares the Go floor, and its `toolchain` line is the
+  Go CI builds with.** Every CI job reads `go.mod` rather than repeating a
+  version, and setup-go installs the `toolchain` line, so the matrix leg named
+  `floor` runs that toolchain and no job compiles on the floor itself. Raising
+  the floor excludes callers and needs a reason beyond convenience. A Go
+  security fix moves the `toolchain` line, never the floor.
 - **`x/crypto/openpgp` is never linked.** Avoiding [GO-2026-5932] is the
   original reason this library exists.
 - **Verification precedes extraction**, so no unverified bytes reach an archive
