@@ -17,6 +17,12 @@ type version struct {
 	minor      uint64
 	patch      uint64
 	prerelease string
+
+	// components is how many numeric components the text wrote out, before
+	// zero-filling. hasBuild reports build metadata after a "+". Neither takes
+	// part in precedence; both say whether the text is a plain release.
+	components int
+	hasBuild   bool
 }
 
 // parseVersion accepts an optional leading "v" and one to three numeric
@@ -29,8 +35,10 @@ func parseVersion(text string) (version, bool) {
 	}
 
 	// Build metadata is ignored entirely for precedence.
+	hasBuild := false
 	if plus := strings.IndexByte(text, '+'); plus >= 0 {
 		text = text[:plus]
+		hasBuild = true
 	}
 
 	var prerelease string
@@ -58,6 +66,8 @@ func parseVersion(text string) (version, bool) {
 	}
 
 	parsed.prerelease = prerelease
+	parsed.components = len(fields)
+	parsed.hasBuild = hasBuild
 	return parsed, true
 }
 
@@ -226,11 +236,7 @@ func IsValidVersion(text string) bool {
 // Every consumer had reimplemented this regex; it belongs here.
 func IsReleaseVersion(text string) bool {
 	parsed, ok := parseVersion(text)
-	if !ok || parsed.prerelease != "" {
-		return false
-	}
 	// parseVersion accepts one or two components and zero-fills; a release
 	// version has all three written out, and build metadata disqualifies it.
-	return strings.Count(strings.TrimPrefix(text, "v"), ".") == 2 &&
-		!strings.Contains(text, "+")
+	return ok && parsed.prerelease == "" && parsed.components == 3 && !parsed.hasBuild
 }

@@ -82,15 +82,15 @@ func TestCompareVersionNumericIdentifiersAreNotLexical(t *testing.T) {
 
 func TestParseVersion(t *testing.T) {
 	valid := map[string]version{
-		"v1.2.3":         {major: 1, minor: 2, patch: 3},
-		"1.2.3":          {major: 1, minor: 2, patch: 3},
-		"v1":             {major: 1},
-		"v1.2":           {major: 1, minor: 2},
-		"v0.0.0":         {},
-		"v1.2.3-rc.1":    {major: 1, minor: 2, patch: 3, prerelease: "rc.1"},
-		"v1.2.3+build":   {major: 1, minor: 2, patch: 3},
-		"v1.2.3-a.1+b.2": {major: 1, minor: 2, patch: 3, prerelease: "a.1"},
-		"v10.20.30":      {major: 10, minor: 20, patch: 30},
+		"v1.2.3":         {major: 1, minor: 2, patch: 3, components: 3},
+		"1.2.3":          {major: 1, minor: 2, patch: 3, components: 3},
+		"v1":             {major: 1, components: 1},
+		"v1.2":           {major: 1, minor: 2, components: 2},
+		"v0.0.0":         {components: 3},
+		"v1.2.3-rc.1":    {major: 1, minor: 2, patch: 3, prerelease: "rc.1", components: 3},
+		"v1.2.3+build":   {major: 1, minor: 2, patch: 3, components: 3, hasBuild: true},
+		"v1.2.3-a.1+b.2": {major: 1, minor: 2, patch: 3, prerelease: "a.1", components: 3, hasBuild: true},
+		"v10.20.30":      {major: 10, minor: 20, patch: 30, components: 3},
 	}
 	for text, want := range valid {
 		got, ok := parseVersion(text)
