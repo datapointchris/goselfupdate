@@ -171,6 +171,7 @@ func TestGitHubSourceExplains404(t *testing.T) {
 	source := newGitHubServer(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	})
+	withoutCredentials(t)
 
 	_, err := source.LatestRelease(context.Background())
 	if !errors.Is(err, ErrNoRelease) {

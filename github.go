@@ -3,6 +3,7 @@ package goselfupdate
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -121,7 +122,7 @@ func (s *GitHubSource) LatestRelease(ctx context.Context) (Release, error) {
 	}
 
 	var release githubRelease
-	if err := s.getJSON(ctx, s.url("releases/latest"), &release); err != nil {
+	if err := s.getReleaseJSON(ctx, s.url("releases/latest"), &release); err != nil {
 		return Release{}, err
 	}
 	if release.TagName == "" {
@@ -134,7 +135,7 @@ func (s *GitHubSource) LatestRelease(ctx context.Context) (Release, error) {
 // GitHub returns newest-first by creation date.
 func (s *GitHubSource) newestRelease(ctx context.Context) (Release, error) {
 	var releases []githubRelease
-	if err := s.getJSON(ctx, s.url("releases?per_page=20"), &releases); err != nil {
+	if err := s.getReleaseJSON(ctx, s.url("releases?per_page=20"), &releases); err != nil {
 		return Release{}, err
 	}
 	for _, release := range releases {
@@ -159,7 +160,7 @@ func (s *GitHubSource) newestRelease(ctx context.Context) (Release, error) {
 // dominated by another one.
 func (s *GitHubSource) highestPrefixedRelease(ctx context.Context) (Release, error) {
 	var releases []githubRelease
-	if err := s.getJSON(ctx, s.url("releases?per_page=100"), &releases); err != nil {
+	if err := s.getReleaseJSON(ctx, s.url("releases?per_page=100"), &releases); err != nil {
 		return Release{}, err
 	}
 
@@ -334,10 +335,40 @@ func statusError(resp *http.Response, url string, authenticated bool) error {
 	case resp.StatusCode == http.StatusUnauthorized:
 		return fmt.Errorf("github rejected the token for %s", url)
 	case resp.StatusCode == http.StatusNotFound:
-		return fmt.Errorf("%w: %s returned 404 (private repositories need a token)", ErrNoRelease, url)
+		return &notFoundError{url: url, authenticated: authenticated}
 	default:
 		return fmt.Errorf("github: %s for %s", resp.Status, url)
 	}
+}
+
+// notFoundError is a 404 from GitHub. What a 404 means depends on the resource
+// asked for: a release read, an asset, a compare between two tags. So fetch
+// reports only the status, and a caller that knows the resource names the
+// cause.
+type notFoundError struct {
+	url           string
+	authenticated bool
+}
+
+func (e *notFoundError) Error() string {
+	return "github: 404 Not Found for " + e.url
+}
+
+// getReleaseJSON reads a release endpoint, where a 404 means the repository
+// shows the request no release, so it is [ErrNoRelease]. GitHub also answers
+// 404 to an anonymous read of a private repository, so that possibility is
+// named only when the request carried no token.
+func (s *GitHubSource) getReleaseJSON(ctx context.Context, url string, into any) error {
+	err := s.getJSON(ctx, url, into)
+	var notFound *notFoundError
+	if !errors.As(err, &notFound) {
+		return err
+	}
+	if notFound.authenticated {
+		return fmt.Errorf("%w: %s returned 404", ErrNoRelease, url)
+	}
+	return fmt.Errorf("%w: %s returned 404 to a request with no token, which is also GitHub's answer for a private repository",
+		ErrNoRelease, url)
 }
 
 // rateLimitError names which ceiling was hit, because the two are different
